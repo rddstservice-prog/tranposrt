@@ -169,14 +169,14 @@
         const evt = opt.e; 
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            // ФИКС ТОЧКИ ЗУМА: Координаты относительно элемента canvas
-            const rect = wrap.getBoundingClientRect();
-            const centerX = ((evt.touches[0].clientX + evt.touches[1].clientX) / 2) - rect.left;
-            const centerY = ((evt.touches[0].clientY + evt.touches[1].clientY) / 2) - rect.top;
-            const point = new fabric.Point(centerX, centerY);
+            
+            // ФИКС ПРИБЛИЖЕНИЯ: используем абсолютные координаты canvas
+            const pointer = canvas.getPointer(evt, true); 
+            const point = new fabric.Point(pointer.x, pointer.y);
             
             if (lastDistance > 0) {
-                canvas.zoomToPoint(point, canvas.getZoom() * (dist / lastDistance));
+                let zoom = canvas.getZoom() * (dist / lastDistance);
+                canvas.zoomToPoint(point, zoom);
             }
             lastDistance = dist; return;
         }
