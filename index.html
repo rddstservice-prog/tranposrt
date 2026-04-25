@@ -30,7 +30,6 @@
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
         
-        /* СТИЛЬ ИНДИКАТОРОВ ТОЧЕК */
         .cal-dot {
             position: absolute; width: 20px; height: 20px;
             background: rgba(33, 150, 243, 0.4); border: 2px solid var(--blue);
@@ -66,7 +65,7 @@
     <div class="section-label">ТЕХНИКА</div>
     <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
     <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина:', '3.0'); if(w) { let l = prompt('Длина:', '9.7'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
     <div class="section-label">МОДУЛИ THP</div>
     <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
     <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
@@ -177,7 +176,6 @@
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
                 calPoints.push(ptr);
-                // Рисуем кружок там, где зафиксировали
                 const visualX = (ptr.x * canvas.getZoom()) + canvas.viewportTransform[4];
                 const visualY = (ptr.y * canvas.getZoom()) + canvas.viewportTransform[5];
                 addCalDot(visualX, visualY);
@@ -265,7 +263,6 @@
     function toggleCalibration() { 
         isCalibrating = !isCalibrating; 
         calPoints = []; 
-        // Удаляем все визуальные кружки при входе/выходе
         document.querySelectorAll('.cal-dot').forEach(d => d.remove());
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
     }
