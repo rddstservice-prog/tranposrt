@@ -104,11 +104,19 @@
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
+        const map = canvas.getObjects().find(o => o.type === 'map');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
+        
+        if(map) map.sendToBack();
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
+        
         if (truck && modules.length > 0) {
             const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
+            
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT), scaleX: sc, scaleY: sc });
+            
+            // СЛОИ: Сначала тягач, потом модули поверх него
+            truck.bringToFront();
             modules.forEach((mod, idx) => {
                 mod.scaleX = mod.scaleY = sc;
                 if (idx > 0) {
@@ -118,7 +126,7 @@
                 mod.setCoords();
                 mod.bringToFront();
             });
-            truck.bringToFront();
+
             createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
@@ -169,15 +177,9 @@
         const evt = opt.e; 
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            
-            // ФИКС ПРИБЛИЖЕНИЯ: используем абсолютные координаты canvas
             const pointer = canvas.getPointer(evt, true); 
             const point = new fabric.Point(pointer.x, pointer.y);
-            
-            if (lastDistance > 0) {
-                let zoom = canvas.getZoom() * (dist / lastDistance);
-                canvas.zoomToPoint(point, zoom);
-            }
+            if (lastDistance > 0) { canvas.zoomToPoint(point, canvas.getZoom() * (dist / lastDistance)); }
             lastDistance = dist; return;
         }
         const ptr = canvas.getPointer(evt);
@@ -202,6 +204,15 @@
 
     canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 
+    // ЛОГИКА ДВИЖЕНИЯ АВТОПОЕЗДА
+    canvas.on('object:moving', (e) => {
+        const moved = e.target; if (moved.type !== 'part') return;
+        const dx = moved.left - (moved._lastLeft || moved.left), dy = moved.top - (moved._lastTop || moved.top);
+        canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
+        canvas.getObjects().forEach(o => { if(o.type==='part'){o._lastLeft = o.left; o._lastTop = o.top;} });
+        syncAll();
+    });
+
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
         let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
@@ -222,7 +233,7 @@
             new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
         ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); obj.bringToFront(); syncAll();
+        canvas.add(obj); syncAll();
     }
 
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
