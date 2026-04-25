@@ -13,7 +13,6 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* Добавлено: Стили экрана авторизации */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 9999; display: flex; flex-direction: column;
@@ -58,7 +57,7 @@
     <div class="section-label">ТЕХНИКА</div>
     <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
     <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина балок:', '3.0'); if(w) { let l = prompt('Длина:', '9.7'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина:', '3.0'); if(w) { let l = prompt('Длина:', '9.7'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
     <div class="section-label">МОДУЛИ THP</div>
     <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
     <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
@@ -80,7 +79,6 @@
 </div>
 
 <script>
-    // --- Telegram & Auth ---
     const tg = window.Telegram.WebApp;
     tg.expand();
     function checkAuth() {
@@ -92,12 +90,11 @@
     if(localStorage.getItem('hta_auth_v3') === 'true') document.getElementById('auth-screen').style.display = 'none';
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // --- Original Logic from проверка12.html ---
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
     const magEl = document.getElementById('magnifier'); const magCtx = document.getElementById('mag-canvas').getContext('2d');
     
-    let PX_METER = 40; let rotationTarget = null; let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0, isZooming = false;
+    let PX_METER = 40; let rotationTarget = null; let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null; 
     let history = []; let historyStep = -1; let isHistoryAction = false;
 
@@ -117,11 +114,14 @@
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
+        
         if (truck && modules.length > 0) {
             const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180;
             const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
             const radT = (truck.angle * Math.PI) / 180;
+            
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT), scaleX: sc, scaleY: sc });
+            
             modules.forEach((mod, idx) => {
                 mod.scaleX = mod.scaleY = sc;
                 if (idx > 0) {
@@ -129,7 +129,10 @@
                     mod.set({ left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) });
                 }
                 mod.setCoords();
+                mod.bringToFront(); // Техника ВСЕГДА сверху
             });
+            truck.bringToFront();
+            
             createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
@@ -137,26 +140,35 @@
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 })); }
+    function createHandle(x, y, t) { 
+        const h = new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 });
+        canvas.add(h);
+        h.bringToFront();
+    }
 
     function updateMagnifier(ptr) {
         if (!isCalibrating) return;
         magEl.style.display = 'block';
         magCtx.clearRect(0, 0, 180, 180); magCtx.save();
         magCtx.translate(90, 90); magCtx.scale(2.5, 2.5); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cal_dot') obj.render(magCtx); });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part') obj.render(magCtx); });
         magCtx.restore();
     }
 
     canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; if (evt.touches && evt.touches.length === 2) { isZooming = true; isDraggingCanvas = false; lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
-        const target = opt.target; startPosX = lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; startPosY = lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        if (target && target.type === 'handle') { rotationTarget = target.handleType; return; }
+        const evt = opt.e; 
+        if (evt.touches && evt.touches.length === 2) {
+            lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
+            return;
+        }
+        const target = opt.target; const ptr = canvas.getPointer(evt);
+        startPosX = lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        startPosY = lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+
         if (isCalibrating) {
-            const ptr = canvas.getPointer(evt); updateMagnifier(ptr);
+            updateMagnifier(ptr);
             calTimer = setTimeout(() => {
-                const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, type: 'cal_dot' });
-                canvas.add(dot); calPoints.push(ptr);
+                calPoints.push(ptr);
                 if (calPoints.length === 2) {
                     const m = prompt("Метры:", "10");
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
@@ -164,6 +176,7 @@
                 }
             }, 2000);
         }
+        if (target && target.type === 'handle') { rotationTarget = target.handleType; return; }
         if (!target || target.type === 'map') isDraggingCanvas = true;
     });
 
@@ -171,11 +184,16 @@
         const evt = opt.e; const ptr = canvas.getPointer(evt);
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            if (lastDistance > 0) { canvas.setZoom(canvas.getZoom() * (dist / lastDistance)); }
+            const point = new fabric.Point((evt.touches[0].clientX + evt.touches[1].clientX) / 2, (evt.touches[0].clientY + evt.touches[1].clientY) / 2);
+            if (lastDistance > 0) {
+                let zoom = canvas.getZoom() * (dist / lastDistance);
+                canvas.zoomToPoint(point, zoom);
+            }
             lastDistance = dist; return;
         }
         const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
+        
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -186,56 +204,50 @@
                 syncAll();
             }
         } else if (isDraggingCanvas) {
-            const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
+            const vpt = canvas.viewportTransform;
+            vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
         }
         lastPosX = cX; lastPosY = cY;
     });
 
-    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; isZooming = false; rotationTarget = null; syncAll(); });
-
-    canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.type !== 'part') return;
-        const dx = moved.left - (moved._lastLeft || moved.left), dy = moved.top - (moved._lastTop || moved.top);
-        canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
-        canvas.getObjects().forEach(o => { if(o.type==='part'){o._lastLeft = o.left; o._lastTop = o.top;} }); syncAll();
-    });
-
-    function updateLastPos() {
-        const parts = canvas.getObjects().filter(o => o.type === 'part');
-        if (parts.length === 0) return;
-        const last = parts[parts.length - 1]; const sc = PX_METER / 40; const rad = (last.angle * Math.PI) / 180;
-        lastPosX = last.left + (last.b_val * sc) * Math.cos(rad); lastPosY = last.top + (last.b_val * sc) * Math.sin(rad);
-    }
+    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
-        let cX = (canvas.width / 2 - vpt[4]) / vpt[0], cY = (canvas.height / 2 - vpt[5]) / vpt[3];
+        // Расчет центра экрана с учетом зума и сдвига
+        let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
         const parts = canvas.getObjects().filter(o => o.type === 'part');
-        if (parts.length > 0) { updateLastPos(); cX = lastPosX - (f||0)*sc*Math.cos(parts[parts.length-1].angle*Math.PI/180); cY = lastPosY - (f||0)*sc*Math.sin(parts[parts.length-1].angle*Math.PI/180); }
-        let obj;
-        if (isMulti) {
-            obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
-                new fabric.Rect({left:l*40+24, top:-60, width:24, height:120, fill:'#444'})
-            ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
-        } else {
-            obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 1, originY: 'center' }),
-                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
-            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
+        
+        if (parts.length > 0) {
+            const last = parts[parts.length-1], rad = (last.angle * Math.PI) / 180;
+            cX = last.left + (last.b_val * sc) * Math.cos(rad) - (f||0)*sc*Math.cos(rad);
+            cY = last.top + (last.b_val * sc) * Math.sin(rad) - (f||0)*sc*Math.sin(rad);
         }
+
+        let obj = isMulti ? new fabric.Group([
+            new fabric.Rect({left:24, top:-(w*40)/2, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
+            new fabric.Rect({left:24, top:(w*40)/2-18, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
+            new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
+            new fabric.Rect({left:l*40+24, top:-60, width:24, height:120, fill:'#444'})
+        ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false })
+        : new fabric.Group([
+            new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 1, originY: 'center' }),
+            new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
+        ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
+
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); updateLastPos(); syncAll();
+        canvas.add(obj); 
+        obj.bringToFront();
+        syncAll();
     }
 
-    function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; calPoints = []; }
+    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     function loadMap(event) {
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); 
+            img.set({ selectable: false, evented: false, type: 'map' }); 
+            canvas.add(img).sendToBack(); 
             const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
             canvas.setZoom(scale); canvas.requestRenderAll();
         }); reader.readAsDataURL(event.target.files[0]);
