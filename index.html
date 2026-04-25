@@ -13,7 +13,7 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* Экран блокировки */
+        /* Добавлено: Стили экрана авторизации */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 9999; display: flex; flex-direction: column;
@@ -30,13 +30,15 @@
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
-        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; font-weight: bold; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); text-align: center; }
+        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); }
+        
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
         #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; pointer-events: none; }
-        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); box-shadow: 0 0 2px black; }
+        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); }
         #mag-crosshair::before { width: 100%; height: 2px; top: 14px; left: 0; }
         #mag-crosshair::after { height: 100%; width: 2px; left: 14px; top: 0; }
+        
         .undo-row { display: flex; gap: 4px; margin-top: 5px; }
         .btn-undo { background: #333; border: 1px solid #555; padding: 10px 0; }
     </style>
@@ -47,7 +49,6 @@
     <h2>HT ASSEMBLER PRO</h2>
     <input type="password" id="pass-input" placeholder="ВВЕДИТЕ ПАРОЛЬ">
     <button id="auth-btn" onclick="checkAuth()">ВОЙТИ</button>
-    <p id="auth-error" style="color: red; font-size: 10px; display: none;">ДОСТУП ОГРАНИЧЕН</p>
 </div>
 
 <div id="sidebar">
@@ -79,27 +80,23 @@
 </div>
 
 <script>
-    // --- ПРОВЕРКА TELEGRAM И ПАРОЛЬ ---
+    // --- Telegram & Auth ---
     const tg = window.Telegram.WebApp;
     tg.expand();
-    if (!tg.initData && window.location.hostname !== 'localhost') {
-        document.getElementById('auth-screen').innerHTML = "<h2>ДОСТУП ТОЛЬКО ЧЕРЕЗ БОТА</h2>";
-    }
-    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
-
-    const SECRET_CODE = "TRANSPORT2024"; 
     function checkAuth() {
-        if(document.getElementById('pass-input').value === SECRET_CODE) {
+        if(document.getElementById('pass-input').value === "TRANSPORT2024") {
             localStorage.setItem('hta_auth_v3', 'true');
             document.getElementById('auth-screen').style.display = 'none';
-        } else { document.getElementById('auth-error').style.display = 'block'; }
+        }
     }
     if(localStorage.getItem('hta_auth_v3') === 'true') document.getElementById('auth-screen').style.display = 'none';
+    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // --- ЛОГИКА ИЗ "ПРОВЕРКА12.HTML" (v8.9.70) ---
+    // --- Original Logic from проверка12.html ---
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'); const magCtx = document.getElementById('mag-canvas').getContext('2d');
+    
     let PX_METER = 40; let rotationTarget = null; let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0, isZooming = false;
     let isCalibrating = false, calPoints = [], calTimer = null; 
     let history = []; let historyStep = -1; let isHistoryAction = false;
@@ -110,10 +107,11 @@
         if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1);
         history.push(state); if (history.length > 20) history.shift(); else historyStep++;
     }
+
     function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
     function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
 
-    canvas.on('object:added', saveHistory); canvas.on('object:modified', saveHistory); canvas.on('object:removed', saveHistory);
+    canvas.on('object:added', saveHistory); canvas.on('object:modified', saveHistory);
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
@@ -132,15 +130,14 @@
                 }
                 mod.setCoords();
             });
-            const hOff = 1.2 * 40 * sc; 
-            createHandle(truck.left + hOff * Math.cos(radT), truck.top + hOff * Math.sin(radT), 'truck'); 
+            createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
-            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - hOff * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - hOff * Math.sin(radL), 'trailer');
+            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
         }
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 8, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 30 })); }
+    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 })); }
 
     function updateMagnifier(ptr) {
         if (!isCalibrating) return;
@@ -174,8 +171,7 @@
         const evt = opt.e; const ptr = canvas.getPointer(evt);
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            const rect = wrap.getBoundingClientRect(); const midX = (evt.touches[0].clientX + evt.touches[1].clientX) / 2 - rect.left, midY = (evt.touches[0].clientY + evt.touches[1].clientY) / 2 - rect.top;
-            if (lastDistance > 0) { canvas.zoomToPoint({ x: midX, y: midY }, canvas.getZoom() * (1 + (dist - lastDistance) / 200)); }
+            if (lastDistance > 0) { canvas.setZoom(canvas.getZoom() * (dist / lastDistance)); }
             lastDistance = dist; return;
         }
         const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
@@ -204,17 +200,25 @@
         canvas.getObjects().forEach(o => { if(o.type==='part'){o._lastLeft = o.left; o._lastTop = o.top;} }); syncAll();
     });
 
+    function updateLastPos() {
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        if (parts.length === 0) return;
+        const last = parts[parts.length - 1]; const sc = PX_METER / 40; const rad = (last.angle * Math.PI) / 180;
+        lastPosX = last.left + (last.b_val * sc) * Math.cos(rad); lastPosY = last.top + (last.b_val * sc) * Math.sin(rad);
+    }
+
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
-        const cX = (canvas.width / 2 - vpt[4]) / vpt[0], cY = (canvas.height / 2 - vpt[5]) / vpt[3];
+        let cX = (canvas.width / 2 - vpt[4]) / vpt[0], cY = (canvas.height / 2 - vpt[5]) / vpt[3];
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        if (parts.length > 0) { updateLastPos(); cX = lastPosX - (f||0)*sc*Math.cos(parts[parts.length-1].angle*Math.PI/180); cY = lastPosY - (f||0)*sc*Math.sin(parts[parts.length-1].angle*Math.PI/180); }
         let obj;
         if (isMulti) {
-            const bl = l*40, bw = w*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-bw/2, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:24, top:bw/2-18, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
+                new fabric.Rect({left:24, top:-(w*40)/2, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
                 new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})
+                new fabric.Rect({left:l*40+24, top:-60, width:24, height:120, fill:'#444'})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
@@ -222,7 +226,8 @@
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         }
-        canvas.add(obj); syncAll();
+        if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
+        canvas.add(obj); updateLastPos(); syncAll();
     }
 
     function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; calPoints = []; }
@@ -230,7 +235,9 @@
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     function loadMap(event) {
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); canvas.requestRenderAll();
+            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); 
+            const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+            canvas.setZoom(scale); canvas.requestRenderAll();
         }); reader.readAsDataURL(event.target.files[0]);
     }
     saveHistory();
