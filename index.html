@@ -10,33 +10,26 @@
     
     <style>
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
-        * { 
-            box-sizing: border-box; 
-            touch-action: none; 
-            -webkit-user-select: none; /* Запрет выделения текста */
-            -webkit-touch-callout: none; /* Запрет системного меню на iOS */
-        }
+        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* Экран блокировки */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 9999; display: flex; flex-direction: column;
             align-items: center; justify-content: center; gap: 20px;
         }
-        #auth-screen h2 { font-size: 18px; letter-spacing: 2px; color: var(--blue); }
         #pass-input { 
             background: #222; border: 2px solid var(--border); padding: 15px; 
             color: white; border-radius: 10px; width: 220px; text-align: center; font-size: 16px;
         }
-        #auth-btn { background: var(--blue); padding: 12px 30px; border-radius: 8px; border: none; color: white; font-weight: bold; }
+        #auth-btn { background: var(--blue); padding: 12px 30px; border-radius: 8px; border: none; color: white; font-weight: bold; cursor: pointer; }
 
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
-        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); }
+        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); pointer-events: none; }
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
         #mag-canvas { position: absolute; top: 0; left: 0; }
     </style>
@@ -44,7 +37,7 @@
 <body>
 
 <div id="auth-screen">
-    <h2 id="auth-title">HT ASSEMBLER PRO</h2>
+    <h2>HT ASSEMBLER PRO</h2>
     <input type="password" id="pass-input" placeholder="ВВЕДИТЕ ПАРОЛЬ">
     <button id="auth-btn" onclick="checkAuth()">ВОЙТИ</button>
     <p id="auth-error" style="color: red; font-size: 10px; display: none;">ДОСТУП ОГРАНИЧЕН</p>
@@ -78,52 +71,25 @@
 </div>
 
 <script>
-    // 1. ИНИЦИАЛИЗАЦИЯ TELEGRAM
     const tg = window.Telegram.WebApp;
-    tg.expand(); 
-    tg.enableClosingConfirmation(); // Подтверждение при закрытии
-
-    // 2. БЛОКИРОВКА ВНЕШНЕГО МИРА
-    // Если открыто не в Telegram - блокируем всё
+    tg.expand();
     if (!tg.initData && window.location.hostname !== 'localhost') {
         document.getElementById('auth-screen').innerHTML = "<h2>ДОСТУП ТОЛЬКО ЧЕРЕЗ БОТА</h2>";
     }
+    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // Запрет контекстного меню (правой кнопки/долгого тапа)
-    window.oncontextmenu = function(e) { e.preventDefault(); e.stopPropagation(); return false; };
-
-    // 3. ПАРОЛЬ И АВТОРИЗАЦИЯ
     const SECRET_CODE = "TRANSPORT2024"; 
-
     function checkAuth() {
-        const val = document.getElementById('pass-input').value;
-        if(val === SECRET_CODE) {
+        if(document.getElementById('pass-input').value === SECRET_CODE) {
             localStorage.setItem('hta_auth_v2', 'true');
             document.getElementById('auth-screen').style.display = 'none';
-        } else {
-            document.getElementById('auth-error').style.display = 'block';
-        }
+        } else { document.getElementById('auth-error').style.display = 'block'; }
     }
+    if(localStorage.getItem('hta_auth_v2') === 'true') document.getElementById('auth-screen').style.display = 'none';
 
-    if(localStorage.getItem('hta_auth_v2') === 'true') {
-        document.getElementById('auth-screen').style.display = 'none';
-    }
-
-    // --- ЛОГИКА ПРИЛОЖЕНИЯ (v8.9.70) ---
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { 
-        width: wrap.clientWidth, 
-        height: wrap.clientHeight, 
-        backgroundColor: '#333', 
-        selection: false, 
-        allowTouchScrolling: false,
-        imageSmoothingEnabled: false 
-    });
-    
-    const magEl = document.getElementById('magnifier'); 
-    const magCtx = document.getElementById('mag-canvas').getContext('2d');
-    let PX_METER = 40; let rotationTarget = null; let isDraggingCanvas = false;
-    let lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0, isZooming = false;
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
+    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
 
     function syncAll() {
@@ -148,51 +114,45 @@
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t) { 
-        canvas.add(new fabric.Circle({ left: x, top: y, radius: 10, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 20 })); 
-    }
+    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 20 })); }
 
     canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; 
-        if (evt.touches && evt.touches.length === 2) {
-            isZooming = true; isDraggingCanvas = false;
-            lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            return;
-        }
-        const target = opt.target; 
-        lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const evt = opt.e; if (evt.touches && evt.touches.length === 2) { isDraggingCanvas = false; lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
+        const target = opt.target; lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (target && target.type === 'handle') { rotationTarget = target.handleType; return; }
         if (!target || target.type === 'map') isDraggingCanvas = true;
     });
 
     canvas.on('mouse:move', function(opt) {
-        const evt = opt.e;
-        if (isZooming && evt.touches.length === 2) {
+        const evt = opt.e; const ptr = canvas.getPointer(evt);
+        if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            if (lastDistance > 0) {
-                let zoom = canvas.getZoom() * (dist / lastDistance);
-                canvas.setZoom(zoom);
-            }
+            if (lastDistance > 0) { canvas.setZoom(canvas.getZoom() * (dist / lastDistance)); }
             lastDistance = dist; return;
         }
-        if (isDraggingCanvas) {
+        if (rotationTarget) {
+            const parts = canvas.getObjects().filter(o => o.type === 'part');
+            const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
+            if (truck && mod0) {
+                const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                if (rotationTarget === 'truck') { truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI; }
+                else { parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; }); }
+                syncAll();
+            }
+        } else if (isDraggingCanvas) {
             const vpt = canvas.viewportTransform;
             vpt[4] += (evt.touches ? evt.touches[0].clientX : evt.clientX) - lastPosX;
             vpt[5] += (evt.touches ? evt.touches[0].clientY : evt.clientY) - lastPosY;
             canvas.requestRenderAll();
         }
-        lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
     });
 
-    canvas.on('mouse:up', () => { isDraggingCanvas = false; isZooming = false; rotationTarget = null; syncAll(); });
+    canvas.on('mouse:up', () => { isDraggingCanvas = false; rotationTarget = null; syncAll(); });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
-        const sc = PX_METER / 40;
-        const vpt = canvas.viewportTransform;
-        const cX = (canvas.width / 2 - vpt[4]) / vpt[0];
-        const cY = (canvas.height / 2 - vpt[5]) / vpt[3];
+        const sc = PX_METER / 40, vpt = canvas.viewportTransform;
+        const cX = (canvas.width / 2 - vpt[4]) / vpt[0], cY = (canvas.height / 2 - vpt[5]) / vpt[3];
         let obj;
         if (isMulti) {
             obj = new fabric.Group([
@@ -214,10 +174,8 @@
         const reader = new FileReader();
         reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
             img.set({ selectable: false, evented: false, type: 'map' });
-            canvas.add(img).sendToBack();
-            canvas.requestRenderAll();
-        });
-        reader.readAsDataURL(event.target.files[0]);
+            canvas.add(img).sendToBack(); canvas.requestRenderAll();
+        }); reader.readAsDataURL(event.target.files[0]);
     }
 
     function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
