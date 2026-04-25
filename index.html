@@ -137,7 +137,6 @@
     }
 
     function createHandle(x, y, t) { 
-        // Уменьшен радиус с 12 до 9
         const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 });
         canvas.add(h); h.bringToFront();
     }
@@ -159,20 +158,10 @@
 
     function addCalDot(ptr) {
         const dot = new fabric.Circle({
-            left: ptr.x,
-            top: ptr.y,
-            radius: 5,
-            fill: '#2196F3',
-            stroke: 'white',
-            strokeWidth: 2,
-            originX: 'center',
-            originY: 'center',
-            selectable: false,
-            evented: false,
-            isCalDot: true
+            left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2,
+            originX: 'center', originY: 'center', selectable: false, evented: false, isCalDot: true
         });
-        canvas.add(dot);
-        dot.bringToFront();
+        canvas.add(dot); dot.bringToFront();
     }
 
     canvas.on('mouse:down', function(opt) {
@@ -188,7 +177,6 @@
             calTimer = setTimeout(() => {
                 calPoints.push(ptr);
                 addCalDot(ptr);
-                
                 if (calPoints.length === 2) {
                     const m = prompt("Метры:", "10");
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
@@ -220,7 +208,7 @@
             if (truck && mod0) {
                 const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
                 if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - ptr.x) * 180 / Math.PI; });
+                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
                 syncAll();
             }
         } else if (isDraggingCanvas) {
@@ -270,20 +258,29 @@
     }
 
     function toggleCalibration() { 
-        isCalibrating = !isCalibrating; 
-        calPoints = []; 
+        isCalibrating = !isCalibrating; calPoints = []; 
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
         canvas.requestRenderAll();
     }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
+    
     function loadMap(event) {
-        const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); 
-            const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
-            canvas.setZoom(scale); canvas.requestRenderAll();
-        }); reader.readAsDataURL(event.target.files[0]);
+        const file = event.target.files[0]; if (!file) return;
+        const reader = new FileReader(); 
+        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
+            canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
+            img.set({ selectable: false, evented: false, type: 'map' }); 
+            canvas.add(img).sendToBack(); 
+            
+            const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
+            canvas.setZoom(scale);
+            canvas.viewportTransform[4] = (canvas.width - img.width * scale) / 2;
+            canvas.viewportTransform[5] = (canvas.height - img.height * scale) / 2;
+            
+            canvas.requestRenderAll();
+        }); reader.readAsDataURL(file);
     }
     saveHistory();
 </script>
