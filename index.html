@@ -3,16 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HT Assembler Pro</title>
+    <title>HT Assembler v8.9.70 PRO</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     
     <style>
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
-        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
+        /* Экран блокировки */
         #auth-screen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 9999; display: flex; flex-direction: column;
@@ -25,13 +26,17 @@
         #auth-btn { background: var(--blue); padding: 12px 30px; border-radius: 8px; border: none; color: white; font-weight: bold; cursor: pointer; }
 
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
-        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; }
+        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
-        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; }
+        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
-        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); pointer-events: none; }
-        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
+        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; font-weight: bold; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); text-align: center; }
+        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
+        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; pointer-events: none; }
+        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); box-shadow: 0 0 2px black; }
+        #mag-crosshair::before { width: 100%; height: 2px; top: 14px; left: 0; }
+        #mag-crosshair::after { height: 100%; width: 2px; left: 14px; top: 0; }
         .undo-row { display: flex; gap: 4px; margin-top: 5px; }
         .btn-undo { background: #333; border: 1px solid #555; padding: 10px 0; }
     </style>
@@ -42,7 +47,7 @@
     <h2>HT ASSEMBLER PRO</h2>
     <input type="password" id="pass-input" placeholder="ВВЕДИТЕ ПАРОЛЬ">
     <button id="auth-btn" onclick="checkAuth()">ВОЙТИ</button>
-    <p id="auth-error" style="color: red; font-size: 10px; display: none;">НЕВЕРНЫЙ ПАРОЛЬ</p>
+    <p id="auth-error" style="color: red; font-size: 10px; display: none;">ДОСТУП ОГРАНИЧЕН</p>
 </div>
 
 <div id="sidebar">
@@ -51,8 +56,8 @@
     <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
     <div class="section-label">ТЕХНИКА</div>
     <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
-    <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГВИШ</button>
-    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина:', '3.0'); if(w) { let l = prompt('Длина:', '9.7'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+    <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
+    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина балок:', '3.0'); if(w) { let l = prompt('Длина:', '9.7'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
     <div class="section-label">МОДУЛИ THP</div>
     <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
     <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
@@ -69,11 +74,12 @@
 
 <div id="canvas-wrap">
     <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
-    <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas></div>
+    <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
     <canvas id="c"></canvas>
 </div>
 
 <script>
+    // --- ПРОВЕРКА TELEGRAM И ПАРОЛЬ ---
     const tg = window.Telegram.WebApp;
     tg.expand();
     if (!tg.initData && window.location.hostname !== 'localhost') {
@@ -84,17 +90,18 @@
     const SECRET_CODE = "TRANSPORT2024"; 
     function checkAuth() {
         if(document.getElementById('pass-input').value === SECRET_CODE) {
-            localStorage.setItem('hta_auth_v2', 'true');
+            localStorage.setItem('hta_auth_v3', 'true');
             document.getElementById('auth-screen').style.display = 'none';
         } else { document.getElementById('auth-error').style.display = 'block'; }
     }
-    if(localStorage.getItem('hta_auth_v2') === 'true') document.getElementById('auth-screen').style.display = 'none';
+    if(localStorage.getItem('hta_auth_v3') === 'true') document.getElementById('auth-screen').style.display = 'none';
 
+    // --- ЛОГИКА ИЗ "ПРОВЕРКА12.HTML" (v8.9.70) ---
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
-    
-    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, lastDistance = 0, isZooming = false;
-    let isCalibrating = false, calPoints = [], calTimer = null;
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
+    const magEl = document.getElementById('magnifier'); const magCtx = document.getElementById('mag-canvas').getContext('2d');
+    let PX_METER = 40; let rotationTarget = null; let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0, isZooming = false;
+    let isCalibrating = false, calPoints = [], calTimer = null; 
     let history = []; let historyStep = -1; let isHistoryAction = false;
 
     function saveHistory() {
@@ -105,14 +112,17 @@
     }
     function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
     function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
-    canvas.on('object:added', saveHistory); canvas.on('object:modified', saveHistory);
+
+    canvas.on('object:added', saveHistory); canvas.on('object:modified', saveHistory); canvas.on('object:removed', saveHistory);
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
         if (truck && modules.length > 0) {
-            const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
+            const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180;
+            const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+            const radT = (truck.angle * Math.PI) / 180;
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT), scaleX: sc, scaleY: sc });
             modules.forEach((mod, idx) => {
                 mod.scaleX = mod.scaleY = sc;
@@ -122,19 +132,41 @@
                 }
                 mod.setCoords();
             });
-            createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
+            const hOff = 1.2 * 40 * sc; 
+            createHandle(truck.left + hOff * Math.cos(radT), truck.top + hOff * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
-            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - hOff * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - hOff * Math.sin(radL), 'trailer');
         }
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 })); }
+    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 8, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 30 })); }
+
+    function updateMagnifier(ptr) {
+        if (!isCalibrating) return;
+        magEl.style.display = 'block';
+        magCtx.clearRect(0, 0, 180, 180); magCtx.save();
+        magCtx.translate(90, 90); magCtx.scale(2.5, 2.5); magCtx.translate(-ptr.x, -ptr.y);
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cal_dot') obj.render(magCtx); });
+        magCtx.restore();
+    }
 
     canvas.on('mouse:down', function(opt) {
         const evt = opt.e; if (evt.touches && evt.touches.length === 2) { isZooming = true; isDraggingCanvas = false; lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
-        const target = opt.target; lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const target = opt.target; startPosX = lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; startPosY = lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (target && target.type === 'handle') { rotationTarget = target.handleType; return; }
+        if (isCalibrating) {
+            const ptr = canvas.getPointer(evt); updateMagnifier(ptr);
+            calTimer = setTimeout(() => {
+                const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, type: 'cal_dot' });
+                canvas.add(dot); calPoints.push(ptr);
+                if (calPoints.length === 2) {
+                    const m = prompt("Метры:", "10");
+                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
+                    toggleCalibration(); syncAll();
+                }
+            }, 2000);
+        }
         if (!target || target.type === 'map') isDraggingCanvas = true;
     });
 
@@ -142,10 +174,12 @@
         const evt = opt.e; const ptr = canvas.getPointer(evt);
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            const midX = (evt.touches[0].clientX + evt.touches[1].clientX) / 2, midY = (evt.touches[0].clientY + evt.touches[1].clientY) / 2;
-            if (lastDistance > 0) { canvas.zoomToPoint({ x: midX, y: midY }, canvas.getZoom() * (dist / lastDistance)); }
+            const rect = wrap.getBoundingClientRect(); const midX = (evt.touches[0].clientX + evt.touches[1].clientX) / 2 - rect.left, midY = (evt.touches[0].clientY + evt.touches[1].clientY) / 2 - rect.top;
+            if (lastDistance > 0) { canvas.zoomToPoint({ x: midX, y: midY }, canvas.getZoom() * (1 + (dist - lastDistance) / 200)); }
             lastDistance = dist; return;
         }
+        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -156,26 +190,31 @@
                 syncAll();
             }
         } else if (isDraggingCanvas) {
-            const vpt = canvas.viewportTransform;
-            vpt[4] += (evt.touches ? evt.touches[0].clientX : evt.clientX) - lastPosX;
-            vpt[5] += (evt.touches ? evt.touches[0].clientY : evt.clientY) - lastPosY;
-            canvas.requestRenderAll();
+            const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
         }
-        lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        lastPosX = cX; lastPosY = cY;
     });
 
-    canvas.on('mouse:up', () => { isDraggingCanvas = false; isZooming = false; rotationTarget = null; lastDistance = 0; syncAll(); });
+    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; isZooming = false; rotationTarget = null; syncAll(); });
+
+    canvas.on('object:moving', (e) => {
+        const moved = e.target; if (moved.type !== 'part') return;
+        const dx = moved.left - (moved._lastLeft || moved.left), dy = moved.top - (moved._lastTop || moved.top);
+        canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
+        canvas.getObjects().forEach(o => { if(o.type==='part'){o._lastLeft = o.left; o._lastTop = o.top;} }); syncAll();
+    });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
         const cX = (canvas.width / 2 - vpt[4]) / vpt[0], cY = (canvas.height / 2 - vpt[5]) / vpt[3];
         let obj;
         if (isMulti) {
+            const bl = l*40, bw = w*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}),
+                new fabric.Rect({left:24, top:-bw/2, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
+                new fabric.Rect({left:24, top:bw/2-18, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
                 new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
-                new fabric.Rect({left:l*40+24, top:-60, width:24, height:120, fill:'#444'})
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
@@ -186,17 +225,14 @@
         canvas.add(obj); syncAll();
     }
 
+    function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; calPoints = []; }
+    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
+    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     function loadMap(event) {
-        const reader = new FileReader();
-        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            img.set({ selectable: false, evented: false, type: 'map' });
-            canvas.add(img).sendToBack(); canvas.requestRenderAll();
+        const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
+            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); canvas.requestRenderAll();
         }); reader.readAsDataURL(event.target.files[0]);
     }
-
-    function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
-    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
-    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; history=[]; historyStep=-1; saveHistory(); syncAll(); } }
     saveHistory();
 </script>
 </body>
