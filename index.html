@@ -35,7 +35,7 @@
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
         #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; pointer-events: none; }
-        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); }
+        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); box-shadow: 0 0 2px black; }
         #mag-crosshair::before { width: 100%; height: 2px; top: 14px; left: 0; }
         #mag-crosshair::after { height: 100%; width: 2px; left: 14px; top: 0; }
         
@@ -86,7 +86,7 @@
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
@@ -132,22 +132,28 @@
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
         }
-        // Держим точки калибровки всегда сверху
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
         canvas.renderAll();
     }
 
     function createHandle(x, y, t) { 
-        const h = new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 });
+        // Уменьшен радиус с 12 до 9
+        const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 });
         canvas.add(h); h.bringToFront();
     }
 
     function updateMagnifier(ptr) {
         if (!isCalibrating) return;
         magEl.style.display = 'block';
-        magCtx.clearRect(0, 0, 180, 180); magCtx.save();
-        magCtx.translate(90, 90); magCtx.scale(2.5, 2.5); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx); });
+        const size = 180, zoom = 2.5;
+        magCtx.clearRect(0, 0, size, size);
+        magCtx.save();
+        magCtx.translate(size/2, size/2);
+        magCtx.scale(zoom, zoom);
+        magCtx.translate(-ptr.x, -ptr.y);
+        canvas.getObjects().forEach(obj => {
+            if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx);
+        });
         magCtx.restore();
     }
 
@@ -155,10 +161,10 @@
         const dot = new fabric.Circle({
             left: ptr.x,
             top: ptr.y,
-            radius: 8,
+            radius: 5,
             fill: '#2196F3',
             stroke: 'white',
-            strokeWidth: 3,
+            strokeWidth: 2,
             originX: 'center',
             originY: 'center',
             selectable: false,
@@ -214,7 +220,7 @@
             if (truck && mod0) {
                 const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
                 if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
+                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - ptr.x) * 180 / Math.PI; });
                 syncAll();
             }
         } else if (isDraggingCanvas) {
@@ -266,7 +272,6 @@
     function toggleCalibration() { 
         isCalibrating = !isCalibrating; 
         calPoints = []; 
-        // Удаляем все точки калибровки при входе/выходе
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
         canvas.requestRenderAll();
