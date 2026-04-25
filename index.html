@@ -114,23 +114,35 @@
         if(map) map.sendToBack();
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
         
-        if (truck && modules.length > 0) {
-            const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
-            truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT), scaleX: sc, scaleY: sc });
-            truck.moveTo(map ? 1 : 0);
+        if (truck) {
+            // Масштабируем тягач всегда, даже если он один
+            truck.set({ scaleX: sc, scaleY: sc });
             
-            modules.forEach((mod, idx) => {
-                mod.scaleX = mod.scaleY = sc;
-                if (idx > 0) {
-                    const prev = modules[idx-1], radP = (prev.angle * Math.PI) / 180;
-                    mod.set({ left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) });
-                }
-                mod.setCoords(); mod.bringToFront();
-            });
+            if (modules.length > 0) {
+                const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, 
+                      kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), 
+                      kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), 
+                      radT = (truck.angle * Math.PI) / 180;
+                
+                truck.set({ 
+                    left: kpX - (truck.b_val * sc) * Math.cos(radT), 
+                    top: kpY - (truck.b_val * sc) * Math.sin(radT) 
+                });
+                truck.moveTo(map ? 1 : 0);
+                
+                modules.forEach((mod, idx) => {
+                    mod.scaleX = mod.scaleY = sc;
+                    if (idx > 0) {
+                        const prev = modules[idx-1], radP = (prev.angle * Math.PI) / 180;
+                        mod.set({ left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) });
+                    }
+                    mod.setCoords(); mod.bringToFront();
+                });
 
-            createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
-            const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
-            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+                createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
+                const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
+                createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+            }
         }
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
         canvas.renderAll();
