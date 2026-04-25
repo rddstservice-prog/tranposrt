@@ -30,10 +30,11 @@
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
         
-        #touch-indicator {
-            position: absolute; width: 24px; height: 24px;
+        /* СТИЛЬ ИНДИКАТОРОВ ТОЧЕК */
+        .cal-dot {
+            position: absolute; width: 20px; height: 20px;
             background: rgba(33, 150, 243, 0.4); border: 2px solid var(--blue);
-            border-radius: 50%; pointer-events: none; display: none; z-index: 1000;
+            border-radius: 50%; pointer-events: none; z-index: 1000;
             transform: translate(-50%, -50%);
         }
 
@@ -81,7 +82,6 @@
 <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
 
 <div id="canvas-wrap">
-    <div id="touch-indicator"></div>
     <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
     <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
     <canvas id="c"></canvas>
@@ -94,7 +94,6 @@
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
     const wrap = document.getElementById('canvas-wrap');
-    const indicator = document.getElementById('touch-indicator');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
@@ -158,6 +157,14 @@
         magCtx.restore();
     }
 
+    function addCalDot(x, y) {
+        const dot = document.createElement('div');
+        dot.className = 'cal-dot';
+        dot.style.left = x + 'px';
+        dot.style.top = y + 'px';
+        wrap.appendChild(dot);
+    }
+
     canvas.on('mouse:down', function(opt) {
         const evt = opt.e; 
         const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
@@ -170,9 +177,11 @@
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
                 calPoints.push(ptr);
+                // Рисуем кружок там, где зафиксировали
                 const visualX = (ptr.x * canvas.getZoom()) + canvas.viewportTransform[4];
                 const visualY = (ptr.y * canvas.getZoom()) + canvas.viewportTransform[5];
-                indicator.style.display = 'block'; indicator.style.left = visualX + 'px'; indicator.style.top = visualY + 'px';
+                addCalDot(visualX, visualY);
+                
                 if (calPoints.length === 2) {
                     const m = prompt("Метры:", "10");
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
@@ -222,7 +231,6 @@
 
     canvas.on('mouse:up', () => { 
         if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; 
-        if (!isCalibrating) indicator.style.display = 'none';
         isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); 
     });
 
@@ -254,7 +262,13 @@
         canvas.add(obj); syncAll();
     }
 
-    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; indicator.style.display = 'none'; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
+    function toggleCalibration() { 
+        isCalibrating = !isCalibrating; 
+        calPoints = []; 
+        // Удаляем все визуальные кружки при входе/выходе
+        document.querySelectorAll('.cal-dot').forEach(d => d.remove());
+        document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
+    }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     function loadMap(event) {
