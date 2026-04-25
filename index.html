@@ -30,13 +30,6 @@
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
         
-        .cal-dot {
-            position: absolute; width: 20px; height: 20px;
-            background: rgba(33, 150, 243, 0.4); border: 2px solid var(--blue);
-            border-radius: 50%; pointer-events: none; z-index: 1000;
-            transform: translate(-50%, -50%);
-        }
-
         .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); }
         
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
@@ -102,7 +95,7 @@
 
     function saveHistory() {
         if (isHistoryAction) return;
-        const state = JSON.stringify(canvas.toDatalessJSON(['vehicleType', 'b_val', 'f_val', 'scaleX', 'scaleY', 'selectable', 'evented']));
+        const state = JSON.stringify(canvas.toDatalessJSON(['vehicleType', 'b_val', 'f_val', 'scaleX', 'scaleY', 'selectable', 'evented', 'isCalDot']));
         if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1);
         history.push(state); if (history.length > 20) history.shift(); else historyStep++;
     }
@@ -139,6 +132,8 @@
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
         }
+        // Держим точки калибровки всегда сверху
+        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
         canvas.renderAll();
     }
 
@@ -152,16 +147,26 @@
         magEl.style.display = 'block';
         magCtx.clearRect(0, 0, 180, 180); magCtx.save();
         magCtx.translate(90, 90); magCtx.scale(2.5, 2.5); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part') obj.render(magCtx); });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx); });
         magCtx.restore();
     }
 
-    function addCalDot(x, y) {
-        const dot = document.createElement('div');
-        dot.className = 'cal-dot';
-        dot.style.left = x + 'px';
-        dot.style.top = y + 'px';
-        wrap.appendChild(dot);
+    function addCalDot(ptr) {
+        const dot = new fabric.Circle({
+            left: ptr.x,
+            top: ptr.y,
+            radius: 8,
+            fill: '#2196F3',
+            stroke: 'white',
+            strokeWidth: 3,
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false,
+            isCalDot: true
+        });
+        canvas.add(dot);
+        dot.bringToFront();
     }
 
     canvas.on('mouse:down', function(opt) {
@@ -176,9 +181,7 @@
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
                 calPoints.push(ptr);
-                const visualX = (ptr.x * canvas.getZoom()) + canvas.viewportTransform[4];
-                const visualY = (ptr.y * canvas.getZoom()) + canvas.viewportTransform[5];
-                addCalDot(visualX, visualY);
+                addCalDot(ptr);
                 
                 if (calPoints.length === 2) {
                     const m = prompt("Метры:", "10");
@@ -188,7 +191,7 @@
             }, 2000);
         }
         if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
-        if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
+        if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
         updateLastPos();
     });
 
@@ -263,8 +266,10 @@
     function toggleCalibration() { 
         isCalibrating = !isCalibrating; 
         calPoints = []; 
-        document.querySelectorAll('.cal-dot').forEach(d => d.remove());
+        // Удаляем все точки калибровки при входе/выходе
+        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
+        canvas.requestRenderAll();
     }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
