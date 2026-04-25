@@ -32,6 +32,8 @@
         .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); pointer-events: none; }
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
         #mag-canvas { position: absolute; top: 0; left: 0; }
+        .undo-row { display: flex; gap: 4px; margin-top: 5px; }
+        .btn-undo { background: #333; border: 1px solid #555; padding: 10px 0; }
     </style>
 </head>
 <body>
@@ -40,7 +42,7 @@
     <h2>HT ASSEMBLER PRO</h2>
     <input type="password" id="pass-input" placeholder="ВВЕДИТЕ ПАРОЛЬ">
     <button id="auth-btn" onclick="checkAuth()">ВОЙТИ</button>
-    <p id="auth-error" style="color: red; font-size: 10px; display: none;">ДОСТУП ОГРАНИЧЕН</p>
+    <p id="auth-error" style="color: red; font-size: 10px; display: none;">НЕВЕРНЫЙ ПАРОЛЬ</p>
 </div>
 
 <div id="sidebar">
@@ -58,6 +60,7 @@
     <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
     <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
     <div style="flex-grow: 1;"></div>
+    <div class="undo-row"><button class="btn-undo" onclick="undo()">⬅️</button><button class="btn-undo" onclick="redo()">➡️</button></div>
     <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
     <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
 </div>
@@ -89,8 +92,20 @@
 
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
-    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, lastDistance = 0;
+    
+    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, lastDistance = 0, isZooming = false;
     let isCalibrating = false, calPoints = [], calTimer = null;
+    let history = []; let historyStep = -1; let isHistoryAction = false;
+
+    function saveHistory() {
+        if (isHistoryAction) return;
+        const state = JSON.stringify(canvas.toDatalessJSON(['vehicleType', 'b_val', 'f_val', 'scaleX', 'scaleY', 'selectable', 'evented']));
+        if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1);
+        history.push(state); if (history.length > 20) history.shift(); else historyStep++;
+    }
+    function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
+    function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
+    canvas.on('object:added', saveHistory); canvas.on('object:modified', saveHistory);
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
@@ -114,10 +129,10 @@
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 20 })); }
+    function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 })); }
 
     canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; if (evt.touches && evt.touches.length === 2) { isDraggingCanvas = false; lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
+        const evt = opt.e; if (evt.touches && evt.touches.length === 2) { isZooming = true; isDraggingCanvas = false; lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
         const target = opt.target; lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (target && target.type === 'handle') { rotationTarget = target.handleType; return; }
         if (!target || target.type === 'map') isDraggingCanvas = true;
@@ -127,7 +142,8 @@
         const evt = opt.e; const ptr = canvas.getPointer(evt);
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            if (lastDistance > 0) { canvas.setZoom(canvas.getZoom() * (dist / lastDistance)); }
+            const midX = (evt.touches[0].clientX + evt.touches[1].clientX) / 2, midY = (evt.touches[0].clientY + evt.touches[1].clientY) / 2;
+            if (lastDistance > 0) { canvas.zoomToPoint({ x: midX, y: midY }, canvas.getZoom() * (dist / lastDistance)); }
             lastDistance = dist; return;
         }
         if (rotationTarget) {
@@ -135,8 +151,8 @@
             const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
             if (truck && mod0) {
                 const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
-                if (rotationTarget === 'truck') { truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI; }
-                else { parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; }); }
+                if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
+                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
                 syncAll();
             }
         } else if (isDraggingCanvas) {
@@ -148,7 +164,7 @@
         lastPosX = evt.touches ? evt.touches[0].clientX : evt.clientX; lastPosY = evt.touches ? evt.touches[0].clientY : evt.clientY;
     });
 
-    canvas.on('mouse:up', () => { isDraggingCanvas = false; rotationTarget = null; syncAll(); });
+    canvas.on('mouse:up', () => { isDraggingCanvas = false; isZooming = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
@@ -180,7 +196,8 @@
 
     function toggleCalibration() { isCalibrating = !isCalibrating; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
-    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
+    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; history=[]; historyStep=-1; saveHistory(); syncAll(); } }
+    saveHistory();
 </script>
 </body>
 </html>
