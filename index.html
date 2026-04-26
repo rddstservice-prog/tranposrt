@@ -115,21 +115,11 @@
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
         
         if (truck) {
-            // Масштабируем тягач всегда, даже если он один
             truck.set({ scaleX: sc, scaleY: sc });
-            
             if (modules.length > 0) {
-                const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, 
-                      kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), 
-                      kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), 
-                      radT = (truck.angle * Math.PI) / 180;
-                
-                truck.set({ 
-                    left: kpX - (truck.b_val * sc) * Math.cos(radT), 
-                    top: kpY - (truck.b_val * sc) * Math.sin(radT) 
-                });
+                const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
+                truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
                 truck.moveTo(map ? 1 : 0);
-                
                 modules.forEach((mod, idx) => {
                     mod.scaleX = mod.scaleY = sc;
                     if (idx > 0) {
@@ -138,7 +128,6 @@
                     }
                     mod.setCoords(); mod.bringToFront();
                 });
-
                 createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
                 const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
                 createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
@@ -180,10 +169,8 @@
         const evt = opt.e; 
         const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
-        
         const ptr = canvas.getPointer(evt);
         startPosX = lastPosX = cX; startPosY = lastPosY = cY;
-
         if (isCalibrating) {
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
@@ -205,8 +192,9 @@
         const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            const pointer = canvas.getPointer(evt, true); 
-            if (lastDistance > 0) canvas.zoomToPoint(new fabric.Point(pointer.x, pointer.y), canvas.getZoom() * (dist / lastDistance));
+            // Зум центрируем по середине экрана
+            const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
+            if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
             lastDistance = dist; return;
         }
         const ptr = canvas.getPointer(evt);
@@ -285,12 +273,10 @@
             canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
             img.set({ selectable: false, evented: false, type: 'map' }); 
             canvas.add(img).sendToBack(); 
-            
             const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
             canvas.setZoom(scale);
             canvas.viewportTransform[4] = (canvas.width - img.width * scale) / 2;
             canvas.viewportTransform[5] = (canvas.height - img.height * scale) / 2;
-            
             canvas.requestRenderAll();
         }); reader.readAsDataURL(file);
     }
