@@ -89,6 +89,12 @@
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
+    // Автоматическое изменение размера холста под экран
+    window.addEventListener('resize', () => {
+        canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
+        canvas.requestRenderAll();
+    });
+
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
     let history = []; let historyStep = -1; let isHistoryAction = false;
@@ -192,7 +198,6 @@
         const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) {
             const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            // Зум центрируем по середине экрана
             const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
             if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
             lastDistance = dist; return;
