@@ -5,14 +5,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HT Assembler v8.9.70 PRO</title>
     
+    <link rel="manifest" href="manifest.json">
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     
     <style>
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        body { margin: 0; font-family: sans-serif; background: #000; color: white; height: 100vh; width: 100vw; overflow: hidden; }
         
+        #status-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; text-align: center; padding: 20px; background: #1a1a1a; }
+        #status-icon { font-size: 60px; margin: 0; }
+        #status-text { font-size: 20px; margin-top: 15px; color: #ccc; }
+
+        #app-container { display: none; height: 100%; width: 100%; }
+
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -34,64 +41,192 @@
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="section-label">КАРТА</div>
-    <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
-    <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
-    <div class="section-label">ТЕХНИКА</div>
-    <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
-    <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
-    <div class="section-label">МОДУЛИ THP</div>
-    <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
-    <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
-    <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
-    <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
-    <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
-    <div style="flex-grow: 1;"></div>
-    <div class="undo-row"><button class="btn-undo" onclick="undo()">⬅️</button><button class="btn-undo" onclick="redo()">➡️</button></div>
-    <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
-    <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
+<div id="status-screen">
+    <h1 id="status-icon">⏳</h1>
+    <h2 id="status-text">Проверка лицензии...</h2>
 </div>
 
-<input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+<div id="app-container">
+    <div id="sidebar">
+        <div class="section-label">КАРТА</div>
+        <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
+        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+        <div class="section-label">ТЕХНИКА</div>
+        <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
+        <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
+        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+        <div class="section-label">МОДУЛИ THP</div>
+        <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
+        <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
+        <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
+        <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
+        <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
+        <div style="flex-grow: 1;"></div>
+        <div class="undo-row"><button class="btn-undo" onclick="undo()">⬅️</button><button class="btn-undo" onclick="redo()">➡️</button></div>
+        <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
+        <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
+    </div>
 
-<div id="canvas-wrap">
-    <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
-    <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
-    <canvas id="c"></canvas>
+    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+
+    <div id="canvas-wrap">
+        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
+        <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
+        <canvas id="c"></canvas>
+    </div>
 </div>
 
 <script>
+    // ТВОЙ СГЕНЕРИРОВАННЫЙ URL УЖЕ ЗДЕСЬ:
+    const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQsBKnw5FdjID7eoXc1X7EjzHs-pvtkqR8B-DAtP8bsgkHOGLS6JqkhPXtaSuUoy8iQw/exec";
+
     const tg = window.Telegram.WebApp; 
     tg.expand();
     tg.ready();
 
-    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
+    function setStatus(icon, text) {
+        document.getElementById('status-icon').innerText = icon;
+        document.getElementById('status-text').innerText = text;
+    }
 
-    const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
-    const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
-    
-    window.addEventListener('resize', () => {
-        canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
-        canvas.requestRenderAll();
-    });
+    function grantAccess() {
+        document.getElementById('status-screen').style.display = 'none';
+        document.getElementById('app-container').style.display = 'flex';
+        initAssembler();
+    }
 
+    async function securityCheck() {
+        const userId = tg.initDataUnsafe?.user?.id;
+        const hasOfflineTicket = localStorage.getItem('access_ticket') === 'valid';
+
+        if (navigator.onLine && userId) {
+            try {
+                const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=checkAccess&id=${userId}`);
+                const data = await response.json();
+
+                if (data.allowed) {
+                    localStorage.setItem('access_ticket', 'valid');
+                    grantAccess();
+                } else {
+                    localStorage.removeItem('access_ticket');
+                    setStatus("⛔️", "Доступ закрыт администратором.");
+                }
+            } catch (error) {
+                if (hasOfflineTicket) grantAccess();
+                else setStatus("⚠️", "Ошибка связи с сервером.");
+            }
+        } 
+        else if (!navigator.onLine) {
+            if (hasOfflineTicket) grantAccess();
+            else setStatus("🔌", "Для первого входа нужен интернет.");
+        } 
+        else if (!userId) {
+            if (hasOfflineTicket) grantAccess();
+            else setStatus("🔒", "Зайдите через Telegram-бота.");
+        }
+    }
+
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('sw.js').catch(() => {});
+        });
+    }
+
+    securityCheck();
+
+    let canvas, wrap, magEl, magCtx;
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
-    let history = []; let historyStep = -1; let isHistoryAction = false;
+    let history = [], historyStep = -1, isHistoryAction = false;
+
+    function initAssembler() {
+        window.oncontextmenu = function(e) { e.preventDefault(); return false; };
+
+        wrap = document.getElementById('canvas-wrap');
+        canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
+        magEl = document.getElementById('magnifier');
+        magCtx = document.getElementById('mag-canvas').getContext('2d');
+        
+        window.addEventListener('resize', () => {
+            if(wrap.clientWidth === 0) return;
+            canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
+            canvas.requestRenderAll();
+        });
+
+        canvas.on('mouse:down', function(opt) {
+            const evt = opt.e; 
+            const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
+            const ptr = canvas.getPointer(evt);
+            startPosX = lastPosX = cX; startPosY = lastPosY = cY;
+            if (isCalibrating) {
+                updateMagnifier(ptr);
+                calTimer = setTimeout(() => {
+                    calPoints.push(ptr);
+                    addCalDot(ptr);
+                    if (calPoints.length === 2) {
+                        const m = prompt("Метры:", "10");
+                        if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
+                        toggleCalibration(); syncAll();
+                    }
+                }, 2000);
+            }
+            if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
+            if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
+            updateLastPos();
+        });
+
+        canvas.on('mouse:move', function(opt) {
+            const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+            if (evt.touches && evt.touches.length === 2) {
+                const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
+                const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
+                if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
+                lastDistance = dist; return;
+            }
+            const ptr = canvas.getPointer(evt);
+            if (isCalibrating) { 
+                updateMagnifier(ptr);
+                if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; }
+            }
+            if (rotationTarget) {
+                const parts = canvas.getObjects().filter(o => o.type === 'part');
+                const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
+                if (truck && mod0) {
+                    const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                    if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
+                    else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
+                    syncAll();
+                }
+            } else if (isDraggingCanvas) {
+                const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
+            }
+            lastPosX = cX; lastPosY = cY;
+        });
+
+        canvas.on('object:moving', (e) => {
+            const moved = e.target; if (moved.type !== 'part') return;
+            const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
+            canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
+            updateLastPos(); syncAll();
+        });
+
+        canvas.on('mouse:up', () => { 
+            if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; 
+            isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); 
+        });
+
+        saveHistory();
+    }
 
     function saveHistory() {
-        if (isHistoryAction) return;
+        if (!canvas || isHistoryAction) return;
         const state = JSON.stringify(canvas.toDatalessJSON(['vehicleType', 'b_val', 'f_val', 'scaleX', 'scaleY', 'selectable', 'evented', 'isCalDot']));
         if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1);
         history.push(state); if (history.length > 20) history.shift(); else historyStep++;
     }
-    
     function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
     function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
-    
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
     function syncAll() {
@@ -153,69 +288,6 @@
         canvas.add(dot); dot.bringToFront();
     }
 
-    canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; 
-        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
-        const ptr = canvas.getPointer(evt);
-        startPosX = lastPosX = cX; startPosY = lastPosY = cY;
-        if (isCalibrating) {
-            updateMagnifier(ptr);
-            calTimer = setTimeout(() => {
-                calPoints.push(ptr);
-                addCalDot(ptr);
-                if (calPoints.length === 2) {
-                    const m = prompt("Метры:", "10");
-                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
-                    toggleCalibration(); syncAll();
-                }
-            }, 2000);
-        }
-        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
-        if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
-        updateLastPos();
-    });
-
-    canvas.on('mouse:move', function(opt) {
-        const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        if (evt.touches && evt.touches.length === 2) {
-            const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
-            const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
-            if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
-            lastDistance = dist; return;
-        }
-        const ptr = canvas.getPointer(evt);
-        if (isCalibrating) { 
-            updateMagnifier(ptr);
-            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; }
-        }
-        if (rotationTarget) {
-            const parts = canvas.getObjects().filter(o => o.type === 'part');
-            const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
-            if (truck && mod0) {
-                const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
-                if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
-                syncAll();
-            }
-        } else if (isDraggingCanvas) {
-            const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
-        }
-        lastPosX = cX; lastPosY = cY;
-    });
-
-    canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.type !== 'part') return;
-        const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
-        canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
-        updateLastPos(); syncAll();
-    });
-
-    canvas.on('mouse:up', () => { 
-        if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; 
-        isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); 
-    });
-
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
         let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
@@ -267,7 +339,6 @@
             canvas.requestRenderAll();
         }); reader.readAsDataURL(file);
     }
-    saveHistory();
 </script>
 </body>
 </html>
