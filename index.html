@@ -10,12 +10,11 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     
     <style>
-        /* Твои оригинальные стили */
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* Стили экрана проверки */
+        /* Экран загрузки и проверки */
         #status-screen { position: absolute; width: 100vw; height: 100vh; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .loader { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -76,8 +75,7 @@
 </div>
 
 <script>
-    // 4. СИСТЕМА УПРАВЛЕНИЯ ДОСТУПОМ
-    // ВАЖНО: Сюда вставляешь актуальную ссылку из Google Apps Script
+    // ТВОЯ НОВАЯ ССЫЛКА ИЗ GOOGLE SCRIPTS (ВСТАВЛЕНА)
     const G_URL = "https://script.google.com/macros/s/AKfycbxMXsQQ2_dnKq3V8YDqfBwf_n9hqt8qpdsz1Z22-B8IgIOwvUDcrruqqLrr6IN_7D_UVg/exec";
     
     const tg = window.Telegram.WebApp; 
@@ -86,7 +84,7 @@
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // Функция проверки. Если она дает добро, запускается твоя механика (initCAD)
+    // СИСТЕМА УПРАВЛЕНИЯ ДОСТУПОМ
     async function checkSecurity() {
         const userId = tg.initDataUnsafe?.user?.id;
         if (!userId) { 
@@ -97,11 +95,10 @@
             const r = await fetch(`${G_URL}?action=checkAccess&id=${userId}`);
             const d = await r.json();
             if (d.allowed) {
-                // Скрываем экран загрузки, показываем интерфейс
                 document.getElementById('status-screen').style.display = 'none';
                 document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('canvas-wrap').style.display = 'block';
-                initCAD(); // Запуск твоего движка
+                initCAD(); 
             } else { 
                 document.getElementById('status-text').innerText = "ДОСТУП ЗАКРЫТ"; 
             }
@@ -110,7 +107,7 @@
         }
     }
 
-    // 5. ТВОЯ ОРИГИНАЛЬНАЯ МЕХАНИКА (ДВИЖОК САПР)
+    // МЕХАНИКА ЧЕРЧЕНИЯ И РАСЧЕТОВ
     let canvas, magEl, magCtx, PX_METER = 40, rotationTarget = null, isDraggingCanvas = false;
     let lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
@@ -323,8 +320,8 @@
         }); reader.readAsDataURL(file);
     }
 
-    // 6. ЗАПУСК ПРОВЕРКИ И РЕГИСТРАЦИЯ PWA
-    checkSecurity(); // Вызываем проверку при старте страницы
+    // ЗАПУСК ПРОВЕРКИ И РЕГИСТРАЦИЯ PWA
+    checkSecurity(); 
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
