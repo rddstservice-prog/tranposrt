@@ -19,7 +19,7 @@
         .loader { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Элементы интерфейса (скрыты до проверки) */
+        /* Элементы интерфейса (скрыты до прохождения проверки) */
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: none; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -75,7 +75,7 @@
 </div>
 
 <script>
-    // ССЫЛКА НА ТВОЙ GOOGLE SCRIPT
+    // --- ПОДКЛЮЧЕНИЕ К СЕРВЕРУ ---
     const G_URL = "https://script.google.com/macros/s/AKfycbz4JGp2TW3MEUcM4rr0g9uzOCR9RHNygIZwCLhKGs8kXMQ58ttUjLLSaKkfA8g2yrqJMw/exec";
     
     const tg = window.Telegram.WebApp; 
@@ -84,7 +84,7 @@
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // --- СИСТЕМА ОХРАНЫ ---
+    // --- СИСТЕМА ПРОВЕРКИ ДОСТУПА ---
     async function checkSecurity() {
         const userId = tg.initDataUnsafe?.user?.id;
         if (!userId) { 
@@ -92,12 +92,11 @@
             return; 
         }
         try {
-            // Запрос к серверу на проверку доступа
             const r = await fetch(`${G_URL}?id=${userId}`);
             const d = await r.json();
             
             if (d.allowed) {
-                // Если доступ есть - убираем заставку и запускаем CAD
+                // Если доступ есть — запускаем приложение
                 document.getElementById('status-screen').style.display = 'none';
                 document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('canvas-wrap').style.display = 'block';
@@ -110,7 +109,7 @@
         }
     }
 
-    // --- ТВОЯ ОРИГИНАЛЬНАЯ МЕХАНИКА (БЕЗ ИЗМЕНЕНИЙ) ---
+    // --- ОРИГИНАЛЬНАЯ МЕХАНИКА (БЕЗ ИЗМЕНЕНИЙ) ---
     let canvas, magEl, magCtx, PX_METER = 40, rotationTarget = null, isDraggingCanvas = false;
     let lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
@@ -196,9 +195,7 @@
         magCtx.translate(size/2, size/2);
         magCtx.scale(zoom, zoom);
         magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => {
-            if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx);
-        });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx); });
         magCtx.restore();
     }
 
@@ -208,16 +205,14 @@
     }
 
     function onMouseDown(opt) {
-        const evt = opt.e; 
-        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
         const ptr = canvas.getPointer(evt);
         startPosX = lastPosX = cX; startPosY = lastPosY = cY;
         if (isCalibrating) {
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
-                calPoints.push(ptr);
-                addCalDot(ptr);
+                calPoints.push(ptr); addCalDot(ptr);
                 if (calPoints.length === 2) {
                     const m = prompt("Метры:", "10");
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
@@ -239,10 +234,7 @@
             lastDistance = dist; return;
         }
         const ptr = canvas.getPointer(evt);
-        if (isCalibrating) { 
-            updateMagnifier(ptr);
-            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; }
-        }
+        if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -252,9 +244,7 @@
                 else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
                 syncAll();
             }
-        } else if (isDraggingCanvas) {
-            const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll();
-        }
+        } else if (isDraggingCanvas) { const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll(); }
         lastPosX = cX; lastPosY = cY;
     }
 
@@ -265,10 +255,7 @@
         updateLastPos(); syncAll();
     }
 
-    function onMouseUp() { 
-        if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; 
-        isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); 
-    }
+    function onMouseUp() { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); }
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
@@ -298,39 +285,21 @@
         canvas.add(obj); syncAll();
     }
 
-    function toggleCalibration() { 
-        isCalibrating = !isCalibrating; calPoints = []; 
-        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
-        document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
-        canvas.requestRenderAll();
-    }
-    
+    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; canvas.requestRenderAll(); }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
     function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
-    
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader(); 
-        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
+        const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
             canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
-            img.set({ selectable: false, evented: false, type: 'map' }); 
-            canvas.add(img).sendToBack(); 
+            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); 
             const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
-            canvas.setZoom(scale);
-            canvas.viewportTransform[4] = (canvas.width - img.width * scale) / 2;
-            canvas.viewportTransform[5] = (canvas.height - img.height * scale) / 2;
-            canvas.requestRenderAll();
+            canvas.setZoom(scale); canvas.viewportTransform[4] = (canvas.width - img.width * scale) / 2; canvas.viewportTransform[5] = (canvas.height - img.height * scale) / 2; canvas.requestRenderAll();
         }); reader.readAsDataURL(file);
     }
 
-    // ЗАПУСК ПРОВЕРКИ ОХРАНОЙ
+    // ЗАПУСК СИСТЕМЫ
     checkSecurity(); 
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW error:', err));
-        });
-    }
 </script>
 </body>
 </html>
