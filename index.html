@@ -14,13 +14,13 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* Экран загрузки и проверки */
+        /* Экран загрузки и охраны */
         #status-screen { position: absolute; width: 100vw; height: 100vh; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
         .loader { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Изначально скрываем интерфейс до прохождения проверки */
-        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); display: none; }
+        /* Элементы интерфейса (скрыты до проверки) */
+        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: none; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
@@ -75,8 +75,8 @@
 </div>
 
 <script>
-    // ТВОЯ НОВАЯ ССЫЛКА ИЗ GOOGLE SCRIPTS (ВСТАВЛЕНА)
-    const G_URL = "https://script.google.com/macros/s/AKfycbxMXsQQ2_dnKq3V8YDqfBwf_n9hqt8qpdsz1Z22-B8IgIOwvUDcrruqqLrr6IN_7D_UVg/exec";
+    // ССЫЛКА НА ТВОЙ GOOGLE SCRIPT
+    const G_URL = "https://script.google.com/macros/s/AKfycbwhO4BggCw4j47JUxTvcslFOES-LwMYOsDEFiUBXdYIRoVjF7OP4eBMNRcxKQshN9ygsg/exec";
     
     const tg = window.Telegram.WebApp; 
     tg.expand();
@@ -84,7 +84,7 @@
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
-    // СИСТЕМА УПРАВЛЕНИЯ ДОСТУПОМ
+    // --- СИСТЕМА ОХРАНЫ ---
     async function checkSecurity() {
         const userId = tg.initDataUnsafe?.user?.id;
         if (!userId) { 
@@ -92,9 +92,12 @@
             return; 
         }
         try {
-            const r = await fetch(`${G_URL}?action=checkAccess&id=${userId}`);
+            // Запрос к серверу на проверку доступа
+            const r = await fetch(`${G_URL}?id=${userId}`);
             const d = await r.json();
+            
             if (d.allowed) {
+                // Если доступ есть - убираем заставку и запускаем CAD
                 document.getElementById('status-screen').style.display = 'none';
                 document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('canvas-wrap').style.display = 'block';
@@ -103,11 +106,11 @@
                 document.getElementById('status-text').innerText = "ДОСТУП ЗАКРЫТ"; 
             }
         } catch (e) { 
-            document.getElementById('status-text').innerText = "ОШИБКА СЕТИ ИЛИ ПРЕВЫШЕН ЛИМИТ"; 
+            document.getElementById('status-text').innerText = "ОШИБКА СЕТИ"; 
         }
     }
 
-    // МЕХАНИКА ЧЕРЧЕНИЯ И РАСЧЕТОВ
+    // --- ТВОЯ ОРИГИНАЛЬНАЯ МЕХАНИКА (БЕЗ ИЗМЕНЕНИЙ) ---
     let canvas, magEl, magCtx, PX_METER = 40, rotationTarget = null, isDraggingCanvas = false;
     let lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
@@ -320,7 +323,7 @@
         }); reader.readAsDataURL(file);
     }
 
-    // ЗАПУСК ПРОВЕРКИ И РЕГИСТРАЦИЯ PWA
+    // ЗАПУСК ПРОВЕРКИ ОХРАНОЙ
     checkSecurity(); 
 
     if ('serviceWorker' in navigator) {
