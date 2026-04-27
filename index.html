@@ -13,17 +13,6 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        #auth-screen {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 9999; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; gap: 20px;
-        }
-        #pass-input { 
-            background: #222; border: 2px solid var(--border); padding: 15px; 
-            color: white; border-radius: 10px; width: 220px; text-align: center; font-size: 16px;
-        }
-        #auth-btn { background: var(--blue); padding: 12px 30px; border-radius: 8px; border: none; color: white; font-weight: bold; cursor: pointer; }
-
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -44,12 +33,6 @@
     </style>
 </head>
 <body>
-
-<div id="auth-screen">
-    <h2>HT ASSEMBLER PRO</h2>
-    <input type="password" id="pass-input" placeholder="ВВЕДИТЕ ПАРОЛЬ">
-    <button id="auth-btn" onclick="checkAuth()">ВОЙТИ</button>
-</div>
 
 <div id="sidebar">
     <div class="section-label">КАРТА</div>
@@ -80,16 +63,16 @@
 </div>
 
 <script>
-    const tg = window.Telegram.WebApp; tg.expand();
-    function checkAuth() { if(document.getElementById('pass-input').value === "TRANSPORT2024") { localStorage.setItem('hta_auth_v3', 'true'); document.getElementById('auth-screen').style.display = 'none'; } }
-    if(localStorage.getItem('hta_auth_v3') === 'true') document.getElementById('auth-screen').style.display = 'none';
+    const tg = window.Telegram.WebApp; 
+    tg.expand();
+    tg.ready();
+
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
-    // Автоматическое изменение размера холста под экран
     window.addEventListener('resize', () => {
         canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
         canvas.requestRenderAll();
@@ -105,12 +88,11 @@
         if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1);
         history.push(state); if (history.length > 20) history.shift(); else historyStep++;
     }
+    
     function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
     function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
     
-    function updateLastPos() {
-        canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; });
-    }
+    function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
