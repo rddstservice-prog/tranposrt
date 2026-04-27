@@ -14,9 +14,9 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; height: 100vh; width: 100vw; overflow: hidden; }
         
-        #status-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; text-align: center; padding: 20px; background: #1a1a1a; }
+        #status-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100%; text-align: center; padding: 20px; background: #1a1a1a; z-index: 9999; }
         #status-icon { font-size: 60px; margin: 0; }
-        #status-text { font-size: 20px; margin-top: 15px; color: #ccc; }
+        #status-text { font-size: 16px; margin-top: 15px; color: #ccc; word-wrap: break-word; max-width: 90%; }
 
         #app-container { display: none; height: 100%; width: 100%; }
 
@@ -77,9 +77,16 @@
 </div>
 
 <script>
-    // ТВОЙ СГЕНЕРИРОВАННЫЙ URL УЖЕ ЗДЕСЬ:
+    // --- НАСТРОЙКИ СВЯЗИ ---
     const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxQsBKnw5FdjID7eoXc1X7EjzHs-pvtkqR8B-DAtP8bsgkHOGLS6JqkhPXtaSuUoy8iQw/exec";
 
+    // --- ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ САПР ---
+    let canvas, wrap, magEl, magCtx;
+    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
+    let isCalibrating = false, calPoints = [], calTimer = null;
+    let history = [], historyStep = -1, isHistoryAction = false;
+
+    // --- ИНИЦИАЛИЗАЦИЯ ТЕЛЕГРАМ ---
     const tg = window.Telegram.WebApp; 
     tg.expand();
     tg.ready();
@@ -92,14 +99,26 @@
     function grantAccess() {
         document.getElementById('status-screen').style.display = 'none';
         document.getElementById('app-container').style.display = 'flex';
-        initAssembler();
+        initAssembler(); // Запуск САПР
     }
 
+    // --- СИСТЕМА БЕЗОПАСНОСТИ ---
     async function securityCheck() {
         const userId = tg.initDataUnsafe?.user?.id;
         const hasOfflineTicket = localStorage.getItem('access_ticket') === 'valid';
 
-        if (navigator.onLine && userId) {
+        // 1. Если Telegram не передал ID (открыли в браузере или баг)
+        if (!userId) {
+            if (hasOfflineTicket) {
+                grantAccess();
+            } else {
+                setStatus("🔒", "Ошибка идентификации. Откройте программу через кнопку WebApp внутри Telegram-бота.");
+            }
+            return;
+        }
+
+        // 2. Если есть интернет - проверяем по базе бота
+        if (navigator.onLine) {
             try {
                 const response = await fetch(`${GOOGLE_SCRIPT_URL}?action=checkAccess&id=${userId}`);
                 const data = await response.json();
@@ -109,36 +128,32 @@
                     grantAccess();
                 } else {
                     localStorage.removeItem('access_ticket');
-                    setStatus("⛔️", "Доступ закрыт администратором.");
+                    setStatus("⛔️", "Доступ закрыт или отозван администратором.");
                 }
             } catch (error) {
                 if (hasOfflineTicket) grantAccess();
-                else setStatus("⚠️", "Ошибка связи с сервером.");
+                else setStatus("⚠️", "Ошибка связи с сервером базы данных.");
             }
         } 
-        else if (!navigator.onLine) {
+        // 3. Если интернета нет - пускаем по билету
+        else {
             if (hasOfflineTicket) grantAccess();
-            else setStatus("🔌", "Для первого входа нужен интернет.");
-        } 
-        else if (!userId) {
-            if (hasOfflineTicket) grantAccess();
-            else setStatus("🔒", "Зайдите через Telegram-бота.");
+            else setStatus("🔌", "Для первого входа необходимо подключение к интернету.");
         }
     }
 
+    // Регистрация оффлайн-воркера
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('sw.js').catch(() => {});
         });
     }
 
+    // Запуск проверки при загрузке страницы
     securityCheck();
 
-    let canvas, wrap, magEl, magCtx;
-    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
-    let isCalibrating = false, calPoints = [], calTimer = null;
-    let history = [], historyStep = -1, isHistoryAction = false;
 
+    // --- ДВИЖОК САПР (HT ASSEMBLER) ---
     function initAssembler() {
         window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
@@ -230,6 +245,7 @@
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
     function syncAll() {
+        if (!canvas) return;
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const map = canvas.getObjects().find(o => o.type === 'map');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -289,6 +305,7 @@
     }
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
+        if (!canvas) return;
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
         let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
         const parts = canvas.getObjects().filter(o => o.type === 'part');
@@ -317,15 +334,19 @@
     }
 
     function toggleCalibration() { 
+        if (!canvas) return;
         isCalibrating = !isCalibrating; calPoints = []; 
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
         canvas.requestRenderAll();
     }
-    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
-    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
+    
+    function deleteSelected() { if(!canvas) return; canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
+    
+    function clearAll() { if(!canvas) return; if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     
     function loadMap(event) {
+        if (!canvas) return;
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); 
         reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
