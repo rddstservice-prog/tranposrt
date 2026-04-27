@@ -65,8 +65,8 @@
 </div>
 
 <script>
-    // --- ЗАМЕНИ ЭТУ ССЫЛКУ НА СВОЮ ИЗ GOOGLE ---
-    const G_URL = "https://script.google.com/macros/s/AKfycbz4JGp2TW3MEUcM4rr0g9uzOCR9RHNygIZwCLhKGs8kXMQ58ttUjLLSaKkfA8g2yrqJMw/exec";
+    // Твоя ссылка уже здесь
+    const G_URL = "https://script.google.com/macros/s/AKfycbxvWia49ll9tAwNffVu3Q3MD1RKzyms5H3rWlDN0whw9DPKSfFSKtldvpaVzngdNJHcAg/exec";
     
     const tg = window.Telegram.WebApp; 
     tg.expand();
@@ -94,7 +94,7 @@
 
     function initCAD() {
         const wrap = document.getElementById('canvas-wrap');
-        canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
+        canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false });
         magEl = document.getElementById('magnifier');
         magCtx = document.getElementById('mag-canvas').getContext('2d');
         canvas.on('mouse:down', onMouseDown);
