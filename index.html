@@ -11,9 +11,12 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         #status-screen { position: absolute; width: 100vw; height: 100vh; background: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; display: none; }
-        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; }
+        .loader { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 20px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); display: none; }
+        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
+        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; display: none; }
         .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); }
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
@@ -21,22 +24,37 @@
         #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; }
         #mag-crosshair::before { content: ''; position: absolute; background: var(--blue); width: 100%; height: 2px; top: 14px; left: 0; }
         #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); height: 100%; width: 2px; left: 14px; top: 0; }
+        .undo-row { display: flex; gap: 4px; margin-top: 5px; }
+        .btn-undo { background: #333; border: 1px solid #555; padding: 10px 0; }
     </style>
 </head>
 <body>
-<div id="status-screen"><h2 id="status-text">ПРОВЕРКА...</h2></div>
+
+<div id="status-screen">
+    <div class="loader"></div>
+    <h2 id="status-text">ПРОВЕРКА ЛИЦЕНЗИИ...</h2>
+</div>
+
 <div id="sidebar">
+    <div class="section-label">КАРТА</div>
     <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
-    <button class="btn-blue" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+    <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+    <div class="section-label">ТЕХНИКА</div>
     <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
     <button class="btn-red" onclick="addVehicle('Горб', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГОРБ</button>
-    <button class="btn-red" style="background:#555" onclick="let w=prompt('Ширина:','3.0'); if(w){let l=prompt('Длина:','8.5'); if(l) addVehicle('Балки',parseFloat(l),parseFloat(w),'multi',parseFloat(l),'mod',0,true)}">🏗 БАЛКИ</button>
+    <button class="btn-red" style="background:#555" onclick="let w=prompt('Ширина (3.0 - 5.5):','3.0'); if(w){let l=prompt('Длина (4.0 - 30.0):','8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true)}">🏗 БАЛКИ</button>
+    <div class="section-label">МОДУЛИ THP</div>
+    <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
     <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
+    <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
     <div style="flex-grow: 1;"></div>
+    <div class="undo-row"><button class="btn-undo" onclick="undo()">⬅️</button><button class="btn-undo" onclick="redo()">➡️</button></div>
     <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
     <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
 </div>
+
 <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+
 <div id="canvas-wrap">
     <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
     <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
@@ -50,7 +68,7 @@
 
     async function checkSecurity() {
         const userId = tg.initDataUnsafe?.user?.id;
-        if (!userId) { document.getElementById('status-text').innerText = "ОШИБКА"; return; }
+        if (!userId) { document.getElementById('status-text').innerText = "ОТКРОЙТЕ В БОТЕ"; return; }
         try {
             const r = await fetch(`${G_URL}?action=checkAccess&id=${userId}`);
             const d = await r.json();
@@ -64,13 +82,14 @@
     }
 
     let canvas, magEl, magCtx, PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
-    let isCalibrating = false, calPoints = [], calTimer = null;
+    let isCalibrating = false, calPoints = [], calTimer = null, history = [], historyStep = -1, isHistoryAction = false;
 
     function initCAD() {
         const wrap = document.getElementById('canvas-wrap');
-        canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false });
+        canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
         magEl = document.getElementById('magnifier'); magCtx = document.getElementById('mag-canvas').getContext('2d');
         canvas.on('mouse:down', onMouseDown); canvas.on('mouse:move', onMouseMove); canvas.on('mouse:up', onMouseUp); canvas.on('object:moving', onObjectMoving);
+        saveHistory();
     }
 
     function syncAll() {
@@ -105,15 +124,17 @@
         }
         let obj;
         if(isMulti) {
-            obj = new fabric.Group([new fabric.Rect({left:24, top:-(w*40)/2, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}), new fabric.Rect({left:24, top:(w*40)/2-18, width:l*40, height:18, fill:'', stroke:'red', strokeWidth:2}), new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}), new fabric.Rect({left:l*40+24, top:-60, width:24, height:120, fill:'#444'})], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
+            const bl = l*40;
+            obj = new fabric.Group([new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}), new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}), new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}), new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 1, originY: 'center' }), new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         }
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); syncAll();
+        canvas.add(obj); syncAll(); saveHistory();
     }
 
-    function createHandle(x, y, t) { const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false }); canvas.add(h); h.bringToFront(); }
+    function createHandle(x, y, t) { const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 }); canvas.add(h); h.bringToFront(); }
+    
     function onMouseDown(opt) {
         const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
@@ -121,8 +142,9 @@
         if (isCalibrating) { updateMagnifier(ptr); calTimer = setTimeout(() => { calPoints.push(ptr); if (calPoints.length === 2) { const m = prompt("Метры:", "10"); if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m); toggleCalibration(); syncAll(); } }, 2000); }
         if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
         if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
-        canvas.getObjects().forEach(o => { o._l = o.left; o._t = o.top; });
+        canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; });
     }
+    
     function onMouseMove(opt) {
         const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         if (evt.touches && evt.touches.length === 2) { const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); if (lastDistance > 0) canvas.setZoom(canvas.getZoom() * (dist / lastDistance)); lastDistance = dist; return; }
@@ -138,14 +160,19 @@
         } else if (isDraggingCanvas) { const vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll(); }
         lastPosX = cX; lastPosY = cY;
     }
-    function onMouseUp() { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); }
-    function onObjectMoving(e) { const moved = e.target; if (moved.type !== 'part') return; const dx = moved.left - moved._l, dy = moved.top - moved._t; canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; }); syncAll(); canvas.getObjects().forEach(o => { o._l = o.left; o._t = o.top; }); }
-    function updateMagnifier(ptr) { magEl.style.display = 'block'; magCtx.clearRect(0,0,180,180); magCtx.save(); magCtx.translate(90,90); magCtx.scale(2.5,2.5); magCtx.translate(-ptr.x,-ptr.y); canvas.renderAll(magCtx); magCtx.restore(); }
+    function onMouseUp() { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); saveHistory(); }
+    function onObjectMoving(e) { const moved = e.target; if (moved.type !== 'part') return; const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop; canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; }); syncAll(); canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
+    
+    function saveHistory() { if (isHistoryAction) return; const state = JSON.stringify(canvas.toDatalessJSON(['vehicleType', 'b_val', 'f_val', 'scaleX', 'scaleY', 'selectable', 'evented', 'isCalDot'])); if (historyStep < history.length - 1) history = history.slice(0, historyStep + 1); history.push(state); if (history.length > 20) history.shift(); else historyStep++; }
+    function undo() { if (historyStep <= 0) return; isHistoryAction = true; historyStep--; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
+    function redo() { if (historyStep >= history.length - 1) return; isHistoryAction = true; historyStep++; canvas.loadFromJSON(history[historyStep], () => { canvas.renderAll(); syncAll(); isHistoryAction = false; }); }
+
+    function updateMagnifier(ptr) { if(!isCalibrating) return; magEl.style.display = 'block'; magCtx.clearRect(0,0,180,180); magCtx.save(); magCtx.translate(90,90); magCtx.scale(2.5,2.5); magCtx.translate(-ptr.x,-ptr.y); canvas.renderAll(magCtx); magCtx.restore(); }
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
     function loadMap(event) { const file = event.target.files[0]; if (!file) return; const r = new FileReader(); r.onload = f => fabric.Image.fromURL(f.target.result, img => { img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack(); canvas.requestRenderAll(); }); r.readAsDataURL(file); }
-    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
-    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
-    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
+    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); saveHistory(); }
+    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); saveHistory(); } }
+    
     checkSecurity();
 </script>
 </body>
