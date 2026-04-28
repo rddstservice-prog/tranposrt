@@ -13,7 +13,7 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
 
-        /* ИНТЕРФЕЙС (теперь отображается сразу) */
+        /* ИНТЕРФЕЙС */
         #sidebar { width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; color: white; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -58,7 +58,6 @@
     tg.expand();
     tg.ready();
 
-    // ЛОГИКА CANVAS (Без проверок безопасности)
     let wrap, canvas, magEl, magCtx;
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY;
     let isCalibrating = false, calPoints = [], calTimer = null;
@@ -164,7 +163,7 @@
     
     function clearAll() { canvas.clear(); PX_METER=40; }
 
-    // ЗАПУСКАЕМ ПРОГРАММУ СРАЗУ (БЕЗ ПРОВЕРОК)
+    // ЗАПУСК ПРОГРАММЫ
     initApp();
 </script>
 </body>
