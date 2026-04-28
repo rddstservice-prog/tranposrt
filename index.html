@@ -13,13 +13,13 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* === ЭКРАН ЗАЩИТЫ (НОВОЕ) === */
+        /* === ЭКРАН ЗАЩИТЫ === */
         #loader { position: absolute; width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         .spinner { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-bottom: 20px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #l-text { font-size: 14px; letter-spacing: 1px; color: #888; font-weight: bold; }
+        #l-text { font-size: 14px; letter-spacing: 1px; color: #888; font-weight: bold; text-align: center; padding: 0 20px; }
 
-        /* === ТВОИ СТИЛИ (БЕЗ ИЗМЕНЕНИЙ, ТОЛЬКО СКРЫТЫ ДО АВТОРИЗАЦИИ) === */
+        /* === ИНТЕРФЕЙС === */
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: none; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -80,26 +80,35 @@
     tg.ready();
 
     // === 1. СИСТЕМА ЗАЩИТЫ HT PRO ===
-    const G_URL = "https://script.google.com/macros/s/AKfycbyssI_UYCr4gvx-950Mq9Dlw6gm1v6t_5Gco40xJnmgK6d93HZVZvG5LkbrGkpDlcXlOw/exec";
+    const G_URL = "https://script.google.com/macros/s/AKfycbzGmjnmzY5AwctO9Cg6IeP7Wp0K00OAu7ZurVTva3FjYVQoRY_aPvTCtqQkzfGrGbmQPg/exec";
 
     async function checkAccess() {
-        const uid = tg.initDataUnsafe?.user?.id;
-        if (!uid) { showError("ОШИБКА: ЗАПУСТИТЕ ИЗ БОТА"); return; }
+        const initData = tg.initData;
+        if (!initData) { 
+            showError("ОШИБКА: ЗАПУСТИТЕ ИЗ ТЕЛЕГРАМ БОТА"); 
+            return; 
+        }
         
         try {
-            const res = await fetch(`${G_URL}?id=${uid}`);
+            const res = await fetch(G_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain' }, // Для обхода CORS в GAS
+                body: JSON.stringify({ initData: initData })
+            });
+            
             const data = await res.json();
+            
             if (data.allowed) {
-                // Если доступ есть — прячем лоадер, показываем программу и запускаем её
+                // Если доступ есть — показываем программу
                 document.getElementById('loader').style.display = 'none';
                 document.getElementById('sidebar').style.display = 'flex';
                 document.getElementById('canvas-wrap').style.display = 'block';
                 initApp();
             } else {
-                showError("ДОСТУП ЗАПРЕЩЕН");
+                showError("ДОСТУП ЗАПРЕЩЕН ИЛИ ОЖИДАЕТ ОДОБРЕНИЯ АДМИНИСТРАТОРОМ");
             }
         } catch (e) {
-            showError("ОШИБКА СЕРВЕРА");
+            showError("ОШИБКА СЕРВЕРА АВТОРИЗАЦИИ");
         }
     }
 
@@ -111,13 +120,12 @@
     }
 
 
-    // === 2. ТВОЯ РАБОЧАЯ ПРОГРАММА (БЕЗ ИЗМЕНЕНИЙ) ===
+    // === 2. ОСНОВНАЯ ПРОГРАММА ===
     let wrap, canvas, magEl, magCtx;
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
     let history = []; let historyStep = -1; let isHistoryAction = false;
 
-    // Инициализация Canvas вызывается только ПОСЛЕ успешной проверки
     function initApp() {
         window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
@@ -131,7 +139,7 @@
             canvas.requestRenderAll();
         });
 
-        // ПРИВЯЗКА СОБЫТИЙ CANVAS
+        // СОБЫТИЯ CANVAS
         canvas.on('mouse:down', function(opt) {
             const evt = opt.e; 
             const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
@@ -322,7 +330,7 @@
         }); reader.readAsDataURL(file);
     }
 
-    // ЗАПУСК ПРОВЕРКИ СТАРТУЕТ ЗДЕСЬ
+    // ЗАПУСК ПРОВЕРКИ
     checkAccess();
 </script>
 </body>
