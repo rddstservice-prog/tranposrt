@@ -19,6 +19,10 @@
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
         
+        /* Стили для ползунка прозрачности */
+        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; }
+        #op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
+
         .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); }
         
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
@@ -35,18 +39,28 @@
     <div class="section-label">КАРТА</div>
     <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
     <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+    
     <div class="section-label">ТЕХНИКА</div>
     <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
     <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
     <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+    
     <div class="section-label">МОДУЛИ THP</div>
     <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
     <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
     <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
     <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
     <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
+
+    <div class="section-label">ПРОЗРАЧНОСТЬ</div>
+    <div class="opacity-wrap">
+        <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+    </div>
+    
     <div style="flex-grow: 1;"></div>
-    <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
+    
+    <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearVehiclesOnly()">🧹 ОЧИСТИТЬ ТЕХНИКУ</button>
+    <button class="btn-danger" style="margin-bottom: 4px;" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
     <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
 </div>
 
@@ -66,7 +80,7 @@
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
     window.addEventListener('resize', () => {
@@ -76,6 +90,7 @@
 
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
+    let GLOBAL_OPACITY = 0.6; // Текущая прозрачность по умолчанию
     
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
@@ -108,6 +123,16 @@
         }
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
         canvas.renderAll();
+    }
+
+    function changeGlobalOpacity(val) {
+        GLOBAL_OPACITY = parseFloat(val);
+        canvas.getObjects().forEach(obj => {
+            if (obj.type === 'part') {
+                obj.set('opacity', GLOBAL_OPACITY);
+            }
+        });
+        canvas.requestRenderAll();
     }
 
     function createHandle(x, y, t) { 
@@ -214,28 +239,24 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:0.6, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:0.6, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:0.6, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:0.6, stroke:'black', strokeWidth:2})
-            ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
+                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:1.0, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:1.0, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:1.0, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:1.0, stroke:'black', strokeWidth:2})
+            ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else if (t === 'truck') {
-            // МОДЕЛЬ ТЯГАЧА С КОНТУРОМ КАБИНЫ
             const tL = l * 40, tW = w * 40;
             obj = new fabric.Group([
-                // Рама
-                new fabric.Rect({ width: tL, height: tW, fill: c, opacity: 0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                // Кабина (перед)
+                new fabric.Rect({ width: tL, height: tW, fill: c, opacity: 1.0, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Rect({ width: tL * 0.3, height: tW * 0.9, left: 2, top: -(tW * 0.9)/2, fill: '#333', opacity: 0.8, stroke: 'black', strokeWidth: 1 }),
-                // Лобовое стекло
                 new fabric.Rect({ width: 4, height: tW * 0.7, left: tL * 0.25, top: -(tW * 0.7)/2, fill: '#666' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: tL/2, fill: 'black', fontWeight: 'bold' })
-            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
+            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else {
             obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:1.0, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
-            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
+            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         }
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
         canvas.add(obj); syncAll();
@@ -247,8 +268,30 @@
         document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
         canvas.requestRenderAll();
     }
-    function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
-    function clearAll() { if(confirm("Сброс?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
+    
+    function deleteSelected() { 
+        const activeObjects = canvas.getActiveObjects();
+        if (activeObjects.length > 0) {
+            activeObjects.forEach(obj => {
+                if (obj.type === 'part') canvas.remove(obj);
+            });
+            canvas.discardActiveObject();
+            syncAll();
+        }
+    }
+
+    function clearVehiclesOnly() {
+        if(confirm("Удалить всю технику с карты?")) {
+            canvas.getObjects().forEach(obj => {
+                if (obj.type === 'part' || obj.type === 'handle') {
+                    canvas.remove(obj);
+                }
+            });
+            syncAll();
+        }
+    }
+
+    function clearAll() { if(confirm("Внимание! Это удалит и технику, и карту. Продолжить?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
     
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
