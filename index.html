@@ -67,8 +67,6 @@
     tg.expand();
     tg.ready();
 
-    // Убраны все стартовые уведомления и вибрации
-
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
     const wrap = document.getElementById('canvas-wrap');
@@ -220,14 +218,16 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill: '#A2231D', opacity: 0.6, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill: '#A2231D', opacity: 0.6, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity: 0.8, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity: 0.8, stroke:'black', strokeWidth:2})
+                // ПРОЗРАЧНОСТЬ БАЛОК (0.4)
+                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill: '#A2231D', opacity: 0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill: '#A2231D', opacity: 0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity: 0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity: 0.4, stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity: 0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                // ПРОЗРАЧНОСТЬ ТЕХНИКИ (0.4)
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity: 0.4, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 11, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         }
