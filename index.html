@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HT Assembler v8.9.70 PRO</title>
+    <title>Heavy Transport V 1.0</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -214,16 +214,13 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                // Балки теперь закрашены цветом меню (темно-красным) с прозрачностью 0.6
                 new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill: '#A2231D', opacity: 0.6, stroke:'black', strokeWidth:2}),
                 new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill: '#A2231D', opacity: 0.6, stroke:'black', strokeWidth:2}),
-                // Площадки балок (слева и справа)
                 new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity: 0.8, stroke:'black', strokeWidth:2}),
                 new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity: 0.8, stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
-                // Основной контур остается черным и четким, а прозрачность применяется только к заливке
                 new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity: 0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 11, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
