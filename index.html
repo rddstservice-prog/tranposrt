@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HT Assembler v8.9.70 PRO</title>
+    <title>HeavyTransport v0.1.0-beta </title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -19,7 +19,6 @@
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
         
-        /* Стили для ползунка прозрачности */
         .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; }
         #op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
 
@@ -90,7 +89,7 @@
 
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
-    let GLOBAL_OPACITY = 0.6; // Текущая прозрачность по умолчанию
+    let GLOBAL_OPACITY = 0.6; 
     
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
@@ -239,22 +238,22 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:1.0, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:1.0, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:1.0, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:1.0, stroke:'black', strokeWidth:2})
+                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
             obj = new fabric.Group([
-                new fabric.Rect({ width: tL, height: tW, fill: c, opacity: 1.0, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Rect({ width: tL * 0.3, height: tW * 0.9, left: 2, top: -(tW * 0.9)/2, fill: '#333', opacity: 0.8, stroke: 'black', strokeWidth: 1 }),
                 new fabric.Rect({ width: 4, height: tW * 0.7, left: tL * 0.25, top: -(tW * 0.7)/2, fill: '#666' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: tL/2, fill: 'black', fontWeight: 'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else {
             obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:1.0, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         }
