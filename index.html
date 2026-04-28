@@ -272,32 +272,23 @@
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
-            const cabL = tL * 0.3; // Длина кабины
-            const instL = cabL * 0.65; // Длина установки (сделали длиннее, ~65% от кабины)
-            const colorSecondary = '#CCC'; // Цвет кабины и установки (светлее тягача)
+            const cabL = tL * 0.3; 
+            const instL = cabL * 0.65; 
+            const colorSecondary = '#CCC'; 
             
-            // Параметры вентилятора
-            const fanCX = cabL + instL / 2; // Координата центра вентилятора
-            const fanR = (instL * 0.8) / 2; // Радиус вентилятора
+            const fanCX = cabL + instL / 2; 
+            const fanR = (instL * 0.8) / 2; 
 
             obj = new fabric.Group([
-                // Рама (основной цвет - белый)
                 new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                // Кабина (цвет #CCC)
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
-                // Установка
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 
-                // Вентилятор: Внешнее кольцо
                 new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#444', strokeWidth: 2 }),
-                // Вентилятор: Вертикальная лопасть
                 new fabric.Rect({ width: 2, height: fanR * 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                // Вентилятор: Горизонтальная лопасть
                 new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                // Вентилятор: Внутренний ротор
                 new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
 
-                // Текст (сместили правее, чтобы не перекрывать установку)
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (cabL + instL + tL) / 2, fill: 'black', fontWeight: 'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else {
