@@ -154,7 +154,7 @@
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
                     toggleCalibration(); syncAll();
                 }
-            }, 1000); // Изменено с 2000 до 1000
+            }, 1000);
         }
         if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
@@ -214,14 +214,26 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:0.4, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:0.4, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:0.4, stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:0.4, stroke:'black', strokeWidth:2})
+                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:0.6, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:0.6, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:0.6, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:0.6, stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
+        } else if (t === 'truck') {
+            // МОДЕЛЬ ТЯГАЧА С КОНТУРОМ КАБИНЫ
+            const tL = l * 40, tW = w * 40;
+            obj = new fabric.Group([
+                // Рама
+                new fabric.Rect({ width: tL, height: tW, fill: c, opacity: 0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                // Кабина (перед)
+                new fabric.Rect({ width: tL * 0.3, height: tW * 0.9, left: 2, top: -(tW * 0.9)/2, fill: '#333', opacity: 0.8, stroke: 'black', strokeWidth: 1 }),
+                // Лобовое стекло
+                new fabric.Rect({ width: 4, height: tW * 0.7, left: tL * 0.25, top: -(tW * 0.7)/2, fill: '#666' }),
+                new fabric.Text(n, { fontSize: 10, originX: 'center', left: tL/2, fill: 'black', fontWeight: 'bold' })
+            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:0.4, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:0.6, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         }
