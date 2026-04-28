@@ -12,19 +12,13 @@
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-        
-        /* ЭКРАН ЗАЩИТЫ */
-        #loader { position: absolute; width: 100vw; height: 100vh; background: #000; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        .spinner { border: 4px solid #333; border-top: 4px solid var(--blue); border-radius: 50%; width: 45px; height: 45px; animation: spin 1s linear infinite; margin-bottom: 20px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #l-text { font-size: 12px; color: #888; font-weight: bold; text-align: center; }
 
-        /* ИНТЕРФЕЙС */
-        #sidebar { width: 115px; background: #222; border-right: 1px solid var(--border); display: none; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; }
+        /* ИНТЕРФЕЙС (теперь отображается сразу) */
+        #sidebar { width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; color: white; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; }
-        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; display: none; }
+        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; display: block; }
         
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
         #mag-canvas { position: absolute; top: 0; left: 0; }
@@ -35,11 +29,6 @@
     </style>
 </head>
 <body>
-
-<div id="loader">
-    <div class="spinner"></div>
-    <div id="l-text">ЗАГРУЗКА...</div>
-</div>
 
 <div id="sidebar">
     <div class="section-label">КАРТА</div>
@@ -69,48 +58,7 @@
     tg.expand();
     tg.ready();
 
-    // ССЫЛКА НА ТВОЙ СКРИПТ
-    const G_URL = "https://script.google.com/macros/s/AKfycbzDigLN1_gDxp17TaRe7bhmy1o-GHQdlMXvmtKII_q2xeI4hlQI0KmzxHFKthBQfXM65g/exec";
-
-    async function checkAccess() {
-        const lText = document.getElementById('l-text');
-        lText.innerText = "ПОЛУЧЕНИЕ ДАННЫХ TG...";
-        
-        await new Promise(r => setTimeout(r, 500));
-        const initData = tg.initData;
-
-        if (!initData) { 
-            showError("ДАННЫЕ НЕ НАЙДЕНЫ. ОТКРОЙТЕ В БОТЕ."); 
-            return; 
-        }
-        
-        lText.innerText = "ПРОВЕРКА В БАЗЕ...";
-        try {
-            const url = G_URL + "?auth=" + encodeURIComponent(initData) + "&v=" + Math.random();
-            const res = await fetch(url);
-            const data = await res.json();
-            
-            if (data.allowed) {
-                lText.innerText = "ГОТОВО!";
-                document.getElementById('loader').style.display = 'none';
-                document.getElementById('sidebar').style.display = 'flex';
-                document.getElementById('canvas-wrap').style.display = 'block';
-                initApp();
-            } else {
-                showError("ДОСТУП ЗАПРЕЩЕН.");
-            }
-        } catch (e) {
-            showError("ОШИБКА СЕТИ. ПОПРОБУЙТЕ СНОВА.");
-        }
-    }
-
-    function showError(text) {
-        document.querySelector('.spinner').style.display = 'none';
-        document.getElementById('l-text').innerText = text;
-        document.getElementById('l-text').style.color = '#ff4444';
-    }
-
-    // ЛОГИКА CANVAS
+    // ЛОГИКА CANVAS (Без проверок безопасности)
     let wrap, canvas, magEl, magCtx;
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY;
     let isCalibrating = false, calPoints = [], calTimer = null;
@@ -189,27 +137,35 @@
     }
 
     function createHandle(x, y, t) { canvas.add(new fabric.Circle({ left: x, top: y, radius: 10, fill: '#2196F3', stroke: 'white', originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false })); }
+    
     function updateMagnifier(ptr) {
         magEl.style.display = 'block'; magCtx.clearRect(0,0,180,180); magCtx.save();
         magCtx.translate(90,90); magCtx.scale(2.5,2.5); magCtx.translate(-ptr.x, -ptr.y);
         canvas.getObjects().forEach(o => { if(o.type==='map' || o.isCalDot) o.render(magCtx); }); magCtx.restore();
     }
+    
     function addCalDot(ptr) { canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', isCalDot: true, selectable: false })); }
+    
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; }
+    
     function addVehicle(n, l, w, c, b, t, f) {
         const sc = PX_METER/40;
         const obj = new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black' }), new fabric.Text(n, { fontSize: 10, left: 5 })], { left: 100, top: 100, type: 'part', vehicleType: t, b_val: b*40, f_val: (f||0)*40, originY: 'center', hasControls: false });
         canvas.add(obj); syncAll();
     }
+    
     function loadMap(e) {
         const reader = new FileReader(); 
         reader.onload = f => fabric.Image.fromURL(f.target.result, img => { canvas.add(img.set({ selectable: false, type: 'map' })).sendToBack(); });
         reader.readAsDataURL(e.target.files[0]);
     }
+    
     function deleteSelected() { canvas.getActiveObjects().forEach(o => canvas.remove(o)); syncAll(); }
+    
     function clearAll() { canvas.clear(); PX_METER=40; }
 
-    checkAccess();
+    // ЗАПУСКАЕМ ПРОГРАММУ СРАЗУ (БЕЗ ПРОВЕРОК)
+    initApp();
 </script>
 </body>
 </html>
