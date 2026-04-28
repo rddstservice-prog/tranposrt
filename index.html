@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HeavyTransport v0.1.0-beta </title>
+    <title>HeavyTransport PRO</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -12,6 +12,26 @@
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
+        
+        /* СТАРТОВЫЙ ЭКРАН */
+        #hub-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; z-index: 1000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px;
+        }
+        .hub-title { font-size: 18px; font-weight: bold; margin-bottom: 30px; color: var(--blue); text-transform: uppercase; letter-spacing: 2px; }
+        .hub-grid { display: grid; grid-template-columns: 1fr; gap: 15px; width: 100%; max-width: 300px; }
+        .hub-card {
+            background: #222; border: 2px solid var(--border); padding: 20px; border-radius: 12px;
+            text-align: center; cursor: pointer; transition: 0.2s;
+        }
+        .hub-card:active { transform: scale(0.95); border-color: var(--blue); }
+        .hub-card h3 { margin: 0 0 5px 0; font-size: 14px; }
+        .hub-card p { margin: 0; font-size: 10px; color: #777; }
+        .hub-card.locked { opacity: 0.5; border-style: dashed; }
+
+        /* ОСНОВНОЙ ИНТЕРФЕЙС (скрыт по умолчанию) */
+        #main-app { display: none; width: 100%; height: 100%; }
         
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
@@ -34,47 +54,72 @@
 </head>
 <body>
 
-<div id="sidebar">
-    <div class="section-label">КАРТА</div>
-    <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
-    <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
-    
-    <div class="section-label">ТЕХНИКА</div>
-    <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
-    <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-    <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
-    
-    <div class="section-label">МОДУЛИ THP</div>
-    <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
-    <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
-    <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
-    <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
-    <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
-
-    <div class="section-label">ПРОЗРАЧНОСТЬ</div>
-    <div class="opacity-wrap">
-        <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+<div id="hub-screen">
+    <div class="hub-title">Выберите редактор</div>
+    <div class="hub-grid">
+        <div class="hub-card" onclick="startEditor('truck-goose')">
+            <h3>🚛 Тягач + Гусь</h3>
+            <p>Модульные перевозки THP</p>
+        </div>
+        
+        <div class="hub-card locked">
+            <h3>🏗 Спецтехника</h3>
+            <p>Скоро добавится</p>
+        </div>
     </div>
-    
-    <div style="flex-grow: 1;"></div>
-    
-    <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearVehiclesOnly()">🧹 ОЧИСТИТЬ ТЕХНИКУ</button>
-    <button class="btn-danger" style="margin-bottom: 4px;" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
-    <button class="btn-danger" style="background:#000; border:1px solid var(--border)" onclick="clearAll()">❌ СБРОС</button>
 </div>
 
-<input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+<div id="main-app" style="display:flex">
+    <div id="sidebar">
+        <div class="section-label">КАРТА</div>
+        <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
+        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+        
+        <div class="section-label">ТЕХНИКА</div>
+        <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
+        <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
+        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+        
+        <div class="section-label">МОДУЛИ THP</div>
+        <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
+        <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
+        <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
+        <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
+        <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
 
-<div id="canvas-wrap">
-    <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
-    <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
-    <canvas id="c"></canvas>
+        <div class="section-label">ПРОЗРАЧНОСТЬ</div>
+        <div class="opacity-wrap">
+            <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+        </div>
+        
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearVehiclesOnly()">🧹 ОЧИСТИТЬ ТЕХНИКУ</button>
+        <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
+    </div>
+
+    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+
+    <div id="canvas-wrap">
+        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
+        <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
+        <canvas id="c"></canvas>
+    </div>
 </div>
 
 <script>
     const tg = window.Telegram.WebApp; 
     tg.expand();
     tg.ready();
+
+    // Функция переключения экрана
+    function startEditor(type) {
+        if(type === 'truck-goose') {
+            document.getElementById('hub-screen').style.display = 'none';
+            document.getElementById('main-app').style.display = 'flex';
+            // Инициализация размеров канваса при открытии
+            canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
+        }
+    }
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
 
@@ -83,24 +128,24 @@
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
     window.addEventListener('resize', () => {
-        canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
-        canvas.requestRenderAll();
+        if(document.getElementById('main-app').style.display === 'flex') {
+            canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
+            canvas.requestRenderAll();
+        }
     });
 
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
     let GLOBAL_OPACITY = 0.6; 
-    
+
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const map = canvas.getObjects().find(o => o.type === 'map');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
-        
         if(map) map.sendToBack();
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
-        
         if (truck) {
             truck.set({ scaleX: sc, scaleY: sc });
             if (modules.length > 0) {
@@ -126,11 +171,7 @@
 
     function changeGlobalOpacity(val) {
         GLOBAL_OPACITY = parseFloat(val);
-        canvas.getObjects().forEach(obj => {
-            if (obj.type === 'part') {
-                obj.set('opacity', GLOBAL_OPACITY);
-            }
-        });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'part') obj.set('opacity', GLOBAL_OPACITY); });
         canvas.requestRenderAll();
     }
 
@@ -148,17 +189,12 @@
         magCtx.translate(size/2, size/2);
         magCtx.scale(zoom, zoom);
         magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => {
-            if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx);
-        });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx); });
         magCtx.restore();
     }
 
     function addCalDot(ptr) {
-        const dot = new fabric.Circle({
-            left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2,
-            originX: 'center', originY: 'center', selectable: false, evented: false, isCalDot: true
-        });
+        const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, evented: false, isCalDot: true });
         canvas.add(dot); dot.bringToFront();
     }
 
@@ -194,10 +230,7 @@
             lastDistance = dist; return;
         }
         const ptr = canvas.getPointer(evt);
-        if (isCalibrating) { 
-            updateMagnifier(ptr);
-            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; }
-        }
+        if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -220,10 +253,7 @@
         updateLastPos(); syncAll();
     });
 
-    canvas.on('mouse:up', () => { 
-        if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; 
-        isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll();
-    });
+    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
@@ -261,37 +291,12 @@
         canvas.add(obj); syncAll();
     }
 
-    function toggleCalibration() { 
-        isCalibrating = !isCalibrating; calPoints = []; 
-        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
-        document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; 
-        canvas.requestRenderAll();
-    }
+    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; canvas.requestRenderAll(); }
     
-    function deleteSelected() { 
-        const activeObjects = canvas.getActiveObjects();
-        if (activeObjects.length > 0) {
-            activeObjects.forEach(obj => {
-                if (obj.type === 'part') canvas.remove(obj);
-            });
-            canvas.discardActiveObject();
-            syncAll();
-        }
-    }
+    function deleteSelected() { const activeObjects = canvas.getActiveObjects(); if (activeObjects.length > 0) { activeObjects.forEach(obj => { if (obj.type === 'part') canvas.remove(obj); }); canvas.discardActiveObject(); syncAll(); } }
 
-    function clearVehiclesOnly() {
-        if(confirm("Удалить всю технику с карты?")) {
-            canvas.getObjects().forEach(obj => {
-                if (obj.type === 'part' || obj.type === 'handle') {
-                    canvas.remove(obj);
-                }
-            });
-            syncAll();
-        }
-    }
+    function clearVehiclesOnly() { if(confirm("Удалить всю технику с карты?")) { canvas.getObjects().forEach(obj => { if (obj.type === 'part' || obj.type === 'handle') canvas.remove(obj); }); syncAll(); } }
 
-    function clearAll() { if(confirm("Внимание! Это удалит и технику, и карту. Продолжить?")) { canvas.clear(); canvas.setViewportTransform([1,0,0,1,0,0]); PX_METER=40; syncAll(); } }
-    
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); 
