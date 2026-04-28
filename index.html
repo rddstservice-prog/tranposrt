@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>HT Assembler v8.9.70 PRO</title>
     
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     
     <style>
@@ -12,7 +13,7 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; }
+        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
@@ -52,12 +53,18 @@
 <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
 
 <div id="canvas-wrap">
-    <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 2 СЕК</div>
+    <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
     <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
     <canvas id="c"></canvas>
 </div>
 
 <script>
+    const tg = window.Telegram.WebApp; 
+    tg.expand();
+    tg.ready();
+
+    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
+
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: false, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
@@ -147,7 +154,7 @@
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
                     toggleCalibration(); syncAll();
                 }
-            }, 2000);
+            }, 1000); // Изменено с 2000 до 1000
         }
         if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
@@ -207,14 +214,14 @@
         if(isMulti) {
             const bl = l*40;
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'', stroke:'red', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})
+                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', opacity:0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', opacity:0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', opacity:0.4, stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', opacity:0.4, stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false });
         } else {
             obj = new fabric.Group([
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 1, originY: 'center' }),
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, opacity:0.4, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false });
         }
