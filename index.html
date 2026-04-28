@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HeavyTransport PRO</title>
+    <title>HeavyTransport v0.1.0-beta</title>
     
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
@@ -13,6 +13,7 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
+        /* СТАРТОВЫЙ ЭКРАН */
         #hub-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 1000; display: flex; flex-direction: column;
@@ -29,6 +30,7 @@
         .hub-card p { margin: 0; font-size: 10px; color: #777; }
         .hub-card.locked { opacity: 0.5; border-style: dashed; }
 
+        /* ОСНОВНОЙ ИНТЕРФЕЙС */
         #main-app { display: none; width: 100%; height: 100%; }
         
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
@@ -271,17 +273,32 @@
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
             const cabL = tL * 0.3; // Длина кабины
-            const instL = cabL / 3; // Длина установки (1/3 от кабины)
+            const instL = cabL * 0.65; // Длина установки (сделали длиннее, ~65% от кабины)
             const colorSecondary = '#CCC'; // Цвет кабины и установки (светлее тягача)
+            
+            // Параметры вентилятора
+            const fanCX = cabL + instL / 2; // Координата центра вентилятора
+            const fanR = (instL * 0.8) / 2; // Радиус вентилятора
 
             obj = new fabric.Group([
                 // Рама (основной цвет - белый)
                 new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                // Кабина (серый цвет #CCC)
+                // Кабина (цвет #CCC)
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
-                // Установка (сразу за кабиной, длина 1/3 кабины, ширина полная)
+                // Установка
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
-                new fabric.Text(n, { fontSize: 10, originX: 'center', left: tL/2, fill: 'black', fontWeight: 'bold' })
+                
+                // Вентилятор: Внешнее кольцо
+                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#444', strokeWidth: 2 }),
+                // Вентилятор: Вертикальная лопасть
+                new fabric.Rect({ width: 2, height: fanR * 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
+                // Вентилятор: Горизонтальная лопасть
+                new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
+                // Вентилятор: Внутренний ротор
+                new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
+
+                // Текст (сместили правее, чтобы не перекрывать установку)
+                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (cabL + instL + tL) / 2, fill: 'black', fontWeight: 'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
         } else {
             obj = new fabric.Group([
