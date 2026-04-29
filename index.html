@@ -1,272 +1,82 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HeavyTransport v0.1.0-beta</title>
-    
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    
-    <style>
-        :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
-        * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
-        body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
-        
-        #hub-screen {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: #111; z-index: 1000; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; padding: 20px;
-        }
-        .hub-title { font-size: 18px; font-weight: bold; margin-bottom: 30px; color: var(--blue); text-transform: uppercase; letter-spacing: 2px; }
-        .hub-grid { display: grid; grid-template-columns: 1fr; gap: 15px; width: 100%; max-width: 300px; }
-        .hub-card {
-            background: #222; border: 2px solid var(--border); padding: 20px; border-radius: 12px;
-            text-align: center; cursor: pointer; transition: 0.2s;
-        }
-        .hub-card:active { transform: scale(0.95); border-color: var(--blue); }
-        .hub-card h3 { margin: 0 0 5px 0; font-size: 14px; }
-        .hub-card p { margin: 0; font-size: 10px; color: #777; }
-
-        #main-app { display: none; width: 100%; height: 100%; }
-        
-        #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
-        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
-        .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
-        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
-        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
-        
-        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; }
-        #op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
-
-        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); }
-        
-        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; }
-        #mag-canvas { position: absolute; top: 0; left: 0; }
-    </style>
-</head>
-<body>
-
-<div id="hub-screen">
-    <div class="hub-title">Выберите редактор</div>
-    <div class="hub-grid">
-        <div class="hub-card" onclick="startEditor('truck-goose')">
-            <h3>🚛 Тягач + Гусь</h3>
-            <p>Модульные перевозки THP</p>
-        </div>
-    </div>
-</div>
-
-<div id="main-app">
-    <div id="sidebar">
-        <div class="section-label">КАРТА</div>
-        <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
-        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
-        
-        <div class="section-label">ТЕХНИКА</div>
-        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
-        <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-        
-        <div class="section-label">МОДУЛИ THP</div>
-        <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
-        <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
-        <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
-        <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
-
-        <div class="section-label">ПРОЗРАЧНОСТЬ</div>
-        <div class="opacity-wrap">
-            <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
-        </div>
-        
-        <div style="flex-grow: 1;"></div>
-        <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearVehiclesOnly()">🧹 ОЧИСТИТЬ</button>
-        <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
-    </div>
-
-    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
-
-    <div id="canvas-wrap">
-        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
-        <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas></div>
-        <canvas id="c"></canvas>
-    </div>
-</div>
-
-<script>
-    const tg = window.Telegram.WebApp; 
-    tg.expand();
-    tg.ready();
-
-    function startEditor(type) {
-        document.getElementById('hub-screen').style.display = 'none';
-        document.getElementById('main-app').style.display = 'flex';
-        canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
-    }
-
-    const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false });
-    
-    let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, lastDistance = 0;
-    let isCalibrating = false, calPoints = [], calTimer = null;
-    let GLOBAL_OPACITY = 0.6; 
-
-    function syncAll() {
-        const parts = canvas.getObjects().filter(o => o.type === 'part');
-        const map = canvas.getObjects().find(o => o.type === 'map');
-        const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
-        
-        if(map) map.sendToBack();
-        canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
-        parts.forEach(p => p.set({ scaleX: sc, scaleY: sc }));
-
-        if (truck) {
-            if (modules.length > 0) {
-                const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
-                truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
-                truck.moveTo(map ? 1 : 0);
-                modules.forEach((mod, idx) => {
-                    if (idx > 0) {
-                        const prev = modules[idx-1], radP = (prev.angle * Math.PI) / 180;
-                        mod.set({ left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) });
-                    }
-                    mod.setCoords(); mod.bringToFront();
-                });
-                createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
-                const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
-                createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
-            }
-        }
-        canvas.renderAll();
-    }
-
-    function createHandle(x, y, t) { 
-        const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false });
-        canvas.add(h); h.bringToFront();
-    }
-
-    function changeGlobalOpacity(val) {
-        GLOBAL_OPACITY = parseFloat(val);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'part') obj.set('opacity', GLOBAL_OPACITY); });
-        canvas.requestRenderAll();
-    }
-
-    function addVehicle(n, l, w, c, b, t, f) {
-        const sc = PX_METER / 40, vpt = canvas.viewportTransform;
-        let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
-        const parts = canvas.getObjects().filter(o => o.type === 'part');
-        
-        if (parts.length > 0) {
-            const last = parts[parts.length-1], rad = (last.angle * Math.PI) / 180;
-            cX = last.left + (last.b_val * sc) * Math.cos(rad) - (f||0)*sc*Math.cos(rad);
-            cY = last.top + (last.b_val * sc) * Math.sin(rad) - (f||0)*sc*Math.sin(rad);
-        }
-        
-        let obj;
-        if (t === 'truck') {
+} else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
-            const wheelLen = 1.12 * 40, axlesX = [1.3*40, 3.9*40, 5.343*40, 6.763*40];
-            const cabL = tL * 0.3, instL = axlesX[1] - cabL - wheelLen/2;
-            const rearW = 0.65 * 40, frontW = rearW / 2;
+            const wheelLen = 1.12 * 40; 
+            const axlesX = [1.3 * 40, (1.3 + 2.6) * 40, (1.3 + 2.6 + 1.443) * 40, (1.3 + 2.6 + 1.443 + 1.42) * 40];
+            
+            const cabL = tL * 0.3; 
+            const instL = axlesX[1] - cabL - wheelLen/2; 
+            
+            const colorSecondary = '#CCC'; 
+            const wheelColor = '#222';
             let wheels = [];
+            const rearWidth = 0.65 * 40; 
+            const frontWidth = rearWidth / 2; 
 
             axlesX.forEach((axX, idx) => {
-                const h = (idx < 2) ? frontW : rearW;
-                [-(tW/2), (tW/2 - h)].forEach(posY => {
-                    wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: h, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
-                });
-            });
-
-            const radW = instL * 0.95, radH = 9, radiators = [];
-            [-(tW/2)+1, (tW/2-radH-1)].forEach(posY => {
-                radiators.push(new fabric.Rect({ left: cabL+(instL-radW)/2, top: posY, width: radW, height: radH, fill: '#666', stroke: 'black', strokeWidth: 0.5 }));
-                for(let s=3; s<radW; s+=5) radiators.push(new fabric.Rect({ left: cabL+(instL-radW)/2+s, top: posY, width: 1, height: radH, fill: '#333' }));
-            });
-
-            // Исправлено: fanR уменьшен до 0.75, чтобы лопасти были строго внутри кожуха
-            const boxS = instL * 0.85, fanCX = cabL + instL/2, fanR = (boxS*0.75)/2, blades = [];
-            for(let i=0; i<8; i++) blades.push(new fabric.Ellipse({ left: fanCX, top: 0, rx: fanR*0.9, ry: 5, fill: '#333', originX: 'left', originY: 'center', angle: i*45 }));
-
-            const truckBody = [
-                new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }),
-                new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: '#CCC', stroke: 'black', strokeWidth: 1 }),
-                ...radiators,
-                new fabric.Rect({ left: cabL+(instL-boxS)/2, top: -boxS/2, width: boxS, height: boxS, fill: '#999', stroke: '#444', strokeWidth: 1.5 }),
-                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#AAA', stroke: '#555', strokeWidth: 1 }),
-                ...blades,
-                new fabric.Circle({ radius: fanR*0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })
-            ];
-            obj = new fabric.Group([...truckBody, ...wheels], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b*40, f_val: (f||0)*40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
-        } else {
-            let modElems = [new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })];
-            if (n.startsWith('THP')) {
-                for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
-                    let pX = (0.75 + i*1.5)*40;
-                    [-0.9*40, 0.9*40].forEach(pY => {
-                        modElems.push(new fabric.Circle({ left: pX, top: pY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeDashArray: [4, 4] }));
-                        modElems.push(new fabric.Rect({ left: pX, top: pY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)' }));
+                if (idx < 2) { 
+                    [-(tW/2), (tW/2 - frontWidth)].forEach(posY => {
+                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: frontWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
+                    });
+                } else { 
+                    [-(tW/2), (tW/2 - rearWidth)].forEach(posY => {
+                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: rearWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
                     });
                 }
+            });
+
+            // РАДИАТОРЫ (сделаны шире)
+            const radW = instL * 0.9; // Увеличено до 90% длины блока
+            const radH = 8; // Сделаны чуть толще
+            const radiators = [
+                new fabric.Rect({ left: cabL + (instL-radW)/2, top: -tW/2 + 1, width: radW, height: radH, fill: '#777', stroke: 'black', strokeWidth: 0.5 }),
+                new fabric.Rect({ left: cabL + (instL-radW)/2, top: tW/2 - radH - 1, width: radW, height: radH, fill: '#777', stroke: 'black', strokeWidth: 0.5 })
+            ];
+            for(let step = 3; step < radW; step += 5) {
+                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: -tW/2 + 1, width: 1, height: radH, fill: '#333' }));
+                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: tW/2 - radH - 1, width: 1, height: radH, fill: '#333' }));
             }
-            obj = new fabric.Group(modElems, { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b*40, f_val: (f||0)*40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY });
-        }
-        if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); syncAll();
-    }
 
-    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
-    function deleteSelected() { canvas.getActiveObjects().forEach(obj => { if (obj.type === 'part') canvas.remove(obj); }); canvas.discardActiveObject(); syncAll(); }
-    function clearVehiclesOnly() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type === 'part' || obj.type === 'handle') canvas.remove(obj); }); syncAll(); } }
+            // ВЕНТИЛЯТОР В КВАДРАТЕ (по фото)
+            const boxSize = instL * 0.8;
+            const fanBox = new fabric.Rect({
+                left: cabL + (instL - boxSize) / 2,
+                top: -boxSize / 2,
+                width: boxSize,
+                height: boxSize,
+                fill: '#BBB',
+                stroke: '#666',
+                strokeWidth: 1,
+                rx: 2, ry: 2
+            });
 
-    function loadMap(event) {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader(); 
-        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
-            img.set({ selectable: false, evented: false, type: 'map' }); 
-            canvas.add(img).sendToBack(); 
-            const scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height);
-            canvas.setZoom(scale); 
-        }); reader.readAsDataURL(file);
-    }
-
-    canvas.on('mouse:down', function(opt) {
-        const evt = opt.e, ptr = canvas.getPointer(evt);
-        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        lastPosX = cX; lastPosY = cY;
-        if (isCalibrating) {
-            calTimer = setTimeout(() => {
-                calPoints.push(ptr);
-                canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', originX: 'center', originY: 'center', selectable: false, isCalDot: true }));
-                if (calPoints.length === 2) {
-                    const m = prompt("Метры:", "10");
-                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
-                    toggleCalibration(); syncAll();
-                }
-            }, 1000);
-        }
-        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
-        if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
-    });
-
-    canvas.on('mouse:move', function(opt) {
-        const evt = opt.e;
-        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX, cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        if (rotationTarget) {
-            const ptr = canvas.getPointer(evt), parts = canvas.getObjects().filter(o => o.type === 'part'), mod0 = parts.find(p => p.vehicleType === 'mod');
-            if (mod0) {
-                const rad = (mod0.angle*Math.PI)/180, sc = PX_METER/40, kpX = mod0.left+(mod0.f_val*sc)*Math.cos(rad), kpY = mod0.top+(mod0.f_val*sc)*Math.sin(rad);
-                if (rotationTarget === 'truck') parts.find(p => p.vehicleType === 'truck').angle = Math.atan2(kpY-ptr.y, kpX-ptr.x)*180/Math.PI;
-                else parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y-kpY, ptr.x-kpX)*180/Math.PI);
-                syncAll();
+            const fanR = (boxSize * 0.85) / 2;
+            const fanCX = cabL + instL / 2;
+            const fanCircle = new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#555', strokeWidth: 1.5 });
+            
+            // Лопасти вентилятора (6 штук для сходства с фото)
+            let blades = [];
+            for(let i = 0; i < 6; i++) {
+                blades.push(new fabric.Rect({
+                    left: fanCX, top: 0,
+                    width: fanR * 0.9, height: 4,
+                    fill: '#444',
+                    originX: 'left', originY: 'center',
+                    angle: i * 60
+                }));
             }
-        } else if (isDraggingCanvas) {
-            canvas.viewportTransform[4] += cX - lastPosX; canvas.viewportTransform[5] += cY - lastPosY; canvas.requestRenderAll();
-        }
-        lastPosX = cX; lastPosY = cY;
-    });
+            const fanHub = new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333' });
 
-    canvas.on('mouse:up', () => { clearTimeout(calTimer); isDraggingCanvas = false; rotationTarget = null; syncAll(); });
-</script>
-</body>
-</html>
+            const truckBody = [
+                new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
+                new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
+                ...radiators,
+                fanBox,
+                fanCircle,
+                ...blades,
+                fanHub
+            ];
+
+            obj = new fabric.Group([...truckBody, ...wheels], { 
+                left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc 
+            });
