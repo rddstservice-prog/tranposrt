@@ -25,7 +25,6 @@
             position: fixed; 
         }
         
-        /* Глобальный touch-action убираем, чтобы разрешить скролл в меню */
         #hub-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 1000; display: flex; flex-direction: column;
@@ -54,8 +53,8 @@
             padding: 10px 5px; 
             gap: 8px; 
             z-index: 50; 
-            /* НАСТРОЙКИ СКРОЛЛА МЕНЮ */
-            overflow-y: scroll; 
+            /* СКРОЛЛ МЕНЮ ПАЛЬЦЕМ */
+            overflow-y: auto; 
             touch-action: pan-y; 
             -webkit-overflow-scrolling: touch;
             padding-top: env(safe-area-inset-top); 
@@ -72,7 +71,7 @@
             background: #333; 
             overflow: hidden; 
             height: 100%;
-            touch-action: none; /* Запрещаем системный скролл только на канвасе */
+            touch-action: none; 
         }
         
         .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
@@ -284,27 +283,19 @@
         canvas.add(dot); dot.bringToFront();
     }
 
-    // --- ОБРАБОТКА КАСАНИЙ (ОСНОВНАЯ ПРАВКА) ---
     canvas.on('mouse:down', function(opt) {
         const evt = opt.e;
-        const isTouch = evt.touches && evt.touches.length > 0;
-        
-        // Если два пальца - блокируем всё, кроме зума
-        if (isTouch && evt.touches.length === 2) {
-            isDraggingCanvas = false;
-            rotationTarget = null;
-            canvas.selection = false; // Отключаем выделение
-            lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
+        const touches = evt.touches;
+        if (touches && touches.length === 2) {
+            isDraggingCanvas = false; rotationTarget = null; canvas.selection = false;
+            lastDistance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
             return;
         }
-
-        const cX = isTouch ? evt.touches[0].clientX : evt.clientX;
-        const cY = isTouch ? evt.touches[0].clientY : evt.clientY;
+        const cX = touches ? touches[0].clientX : evt.clientX;
+        const cY = touches ? touches[0].clientY : evt.clientY;
         const ptr = canvas.getPointer(evt);
         startPosX = lastPosX = cX; startPosY = lastPosY = cY;
-        
-        canvas.selection = true; // Возвращаем для одного пальца
-
+        canvas.selection = true;
         if (isCalibrating) {
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
@@ -316,38 +307,29 @@
                 }
             }, 1000);
         }
-        
         if (opt.target && opt.target.type === 'handle') { 
             rotationTarget = opt.target.handleType;
             if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
             return; 
         }
-        
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
         updateLastPos();
     });
 
     canvas.on('mouse:move', function(opt) {
         const evt = opt.e;
-        const isTouch = evt.touches && evt.touches.length > 0;
-
-        // ЗУМ ДВУМЯ ПАЛЬЦАМИ
-        if (isTouch && evt.touches.length === 2) {
-            isDraggingCanvas = false;
-            rotationTarget = null;
-            const dist = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY);
+        const touches = evt.touches;
+        if (touches && touches.length === 2) {
+            isDraggingCanvas = false; rotationTarget = null;
+            const dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
             const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
             if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
-            lastDistance = dist;
-            return;
+            lastDistance = dist; return;
         }
-        
-        const cX = isTouch ? evt.touches[0].clientX : evt.clientX;
-        const cY = isTouch ? evt.touches[0].clientY : evt.clientY;
+        const cX = touches ? touches[0].clientX : evt.clientX;
+        const cY = touches ? touches[0].clientY : evt.clientY;
         const ptr = canvas.getPointer(evt);
-
         if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
-        
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
@@ -404,10 +386,36 @@
                 new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9})
             ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else if (t === 'truck') {
-            const tL = l * 40, tW = w * 40;
-            obj = new fabric.Group([new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' })], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
+            const tL = l * 40, tW = w * 40, wL = 1.12 * 40, axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
+            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
+            const fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
+            const fanElements = [
+                new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }),
+                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }),
+                ...Array.from({length: 8}).map((_, i) => new fabric.Rect({ width: 2, height: fanR * 1.8, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i * 45 })),
+                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })
+            ];
+            let wheels = []; axX.forEach((x, idx) => { const hWheel = (idx < 2) ? 13 : 26; [-(tW/2), (tW/2 - hWheel)].forEach(posY => wheels.push(new fabric.Rect({ left: x - wL/2, top: posY, width: wL, height: hWheel, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }))); });
+            const truckBody = [ new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }), new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }) ];
+            obj = new fabric.Group([...truckBody, ...fanElements, ...wheels], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
-            obj = new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
+            let modElems = []; const fsk = 0.32 * 40, mL = l * 40, mW = w * 40;
+            if (n === 'Гуснек') {
+                const f065 = 0.65 * 40;
+                modElems.push(new fabric.Polygon([{ x: f065, y: 0 }, { x: mL, y: 0 }, { x: mL, y: mW }, { x: f065, y: mW }, { x: 0, y: mW - f065 }, { x: 0, y: f065 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
+            } else if (n.startsWith('THP')) {
+                modElems.push(new fabric.Polygon([{ x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk }, { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
+                for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
+                    let posX = (0.75 + i * 1.5) * 40;
+                    [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
+                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}));
+                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
+                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
+                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'}));
+                    });
+                }
+            } else { modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })); }
+            obj = new fabric.Group(modElems, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         }
         canvas.add(obj); syncAll();
     }
