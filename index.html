@@ -123,12 +123,9 @@
         <div class="section-label">КАРТА</div>
         <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
-        
-        <div class="section-label">МОДУЛЯЦИЯ</div>
-        <button class="btn-freeze" onclick="freezeModel()">❄️ ЗАМОРОЗИТЬ</button>
         <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
-        <button class="btn-orange" onclick="gridMenu()">📏 РАЗМ. СЕТКА</button>
-
+        <button class="btn-orange" onclick="addGrid5x5()">📏 РАЗМ. СЕТКА</button>
+        
         <div id="grid-controls">
             <div class="grid-rot-row">
                 <button class="btn-tool btn-mini" onclick="rotateGridActive(-5)">⟲</button>
@@ -136,6 +133,9 @@
             </div>
             <button class="btn-freeze" style="font-size: 8px; padding: 6px 0;" onclick="confirmGrid()">✅ ОК (ФИКС)</button>
         </div>
+
+        <div class="section-label">МОДУЛЯЦИЯ</div>
+        <button class="btn-freeze" onclick="freezeModel()">❄️ ЗАМОРОЗИТЬ</button>
 
         <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
         <div class="opacity-wrap">
@@ -264,19 +264,6 @@
         canvas.add(h); h.bringToFront();
     }
 
-    // --- НОВАЯ ЛОГИКА МЕНЮ СЕТКИ ---
-    function gridMenu() {
-        let action = prompt("Выберите действие:\n1 - Добавить сетку\n2 - Удалить все сетки", "1");
-        if (action === "1") {
-            addGrid5x5();
-        } else if (action === "2") {
-            canvas.getObjects().filter(o => o.type === 'grid5x5').forEach(g => canvas.remove(g));
-            document.getElementById('grid-controls').style.display = 'none';
-            currentGrid = null;
-            canvas.requestRenderAll();
-        }
-    }
-
     function addGrid5x5() {
         let sizeInput = prompt("Размер сетки (округление до 5м):", "25");
         if (!sizeInput) return;
@@ -288,7 +275,9 @@
             let pos = i * PX_METER;
             gridItems.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
             gridItems.push(new fabric.Line([0, pos, totalPx, pos], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
+            // Горизонтальная ось (0 слева, пошло направо):
             gridItems.push(new fabric.Text(i + "м", { left: pos, top: totalPx + 5, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originX: 'center', originY: 'top' }));
+            // Вертикальная ось (снизу вверх):
             gridItems.push(new fabric.Text(i + "м", { left: -8, top: totalPx - pos, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
 
@@ -418,7 +407,7 @@
         } else {
             let modElems = []; const mL = l * 40, mW = w * 40;
             if (n === 'Гуснек') { modElems.push(new fabric.Polygon([{ x: 0.65*40, y: 0 }, { x: mL, y: 0 }, { x: mL, y: mW }, { x: 0.65*40, y: mW }, { x: 0, y: mW - 0.65*40 }, { x: 0, y: 0.65*40 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 })); [0.3 * 40, -0.3 * 40].forEach(y => modElems.push(new fabric.Rect({ left: 2.3 * 40, top: y, width: 0.5 * 40 * 2.5, height: 0.22 * 40, fill: '#444', stroke: 'black', strokeWidth: 1, originX: 'left', originY: 'center' }))); }
-            else if (n.startsWith('THP')) { modElems.push(new fabric.Polygon([{ x: 0.32*40, y: 0 }, { x: mL - 0.32*40, y: 0 }, { x: mL, y: 0.32*40 }, { x: mL, y: mW - 0.32*40 }, { x: mL - 0.32*40, y: mW }, { x: 0.32*40, y: mW }, { x: 0.32*40, y: 0.32*40 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 })); for (let i = 0; i < parseInt(n.split(' ')[1]); i++) { let pX = (0.75 + i * 1.5) * 40; [-0.9*40, 0.9*40].forEach(pY => modElems.push(new fabric.Circle({left: pX, top: pY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}))); } }
+            else if (n.startsWith('THP')) { modElems.push(new fabric.Polygon([{ x: 0.32*40, y: 0 }, { x: mL - 0.32*40, y: 0 }, { x: mL, y: 0.32*40 }, { x: mL, y: mW - 0.32*40 }, { x: mL - 0.32*40, y: mW }, { x: 0.32*40, y: mW }, { x: 0, y: mW - 0.32*40 }, { x: 0, y: 0.32*40 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 })); for (let i = 0; i < parseInt(n.split(' ')[1]); i++) { let pX = (0.75 + i * 1.5) * 40; [-0.9*40, 0.9*40].forEach(pY => modElems.push(new fabric.Circle({left: pX, top: pY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}))); } }
             else { modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })); }
             obj = new fabric.Group(modElems, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, isFrozen: false, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         }
@@ -431,7 +420,7 @@
             else if (obj.type === 'grid5x5') {
                 canvas.remove(obj); 
                 document.getElementById('grid-controls').style.display = 'none'; 
-                currentGrid = null;
+                if(currentGrid === obj) currentGrid = null;
             } 
             else canvas.remove(obj); 
         }); 
@@ -440,6 +429,9 @@
 
     function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; document.getElementById('grid-controls').style.display = 'none'; currentGrid = null; syncAll(); } }
     
+    function changeGlobalOpacity(val) { GLOBAL_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'part') obj.set('opacity', GLOBAL_OPACITY); }); canvas.requestRenderAll(); }
+    function changeCargoOpacity(val) { CARGO_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'cargo') obj.set('opacity', CARGO_OPACITY); }); canvas.requestRenderAll(); }
+
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
