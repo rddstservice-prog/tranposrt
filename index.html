@@ -119,6 +119,7 @@
         <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
         <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
+        <button class="btn-white" style="background:#888" onclick="addGrid5x5()">🏁 СЕТКА 5х5</button>
         
         <div class="section-label">МОДУЛЯЦИЯ</div>
         <button class="btn-freeze" onclick="freezeModel()">❄️ ЗАМОРОЗИТЬ</button>
@@ -152,7 +153,7 @@
         <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearAllButMap()">🧹 ОЧИСТИТЬ</button>
         <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
         
-        <div style="min-height: 120px; flex-shrink: 0; width: 100%;"></div> 
+        <div style="min-height: 100px; flex-shrink: 0; width: 100%;"></div> 
     </div>
 
     <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
@@ -220,7 +221,6 @@
         if (truck && modules.length > 0) {
             const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
-            
             truck.moveTo(map ? 1 : 0);
             modules.forEach((mod, idx) => {
                 if (idx > 0) {
@@ -229,13 +229,11 @@
                 }
                 mod.setCoords(); mod.bringToFront();
             });
-            
             if (cargos.length > 0) {
                 const firstMod = modules[0];
                 const lastMod = modules[modules.length - 1];
                 const centerX = (firstMod.left + (lastMod.left + (lastMod.b_val * sc) * Math.cos(radM))) / 2;
                 const centerY = (firstMod.top + (lastMod.top + (lastMod.b_val * sc) * Math.sin(radM))) / 2;
-
                 cargos.forEach((cargo) => {
                     const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM);
                     const offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
@@ -243,7 +241,6 @@
                     cargo.setCoords(); cargo.bringToFront();
                 });
             }
-
             createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
@@ -262,6 +259,41 @@
     function createHandle(x, y, t, cargoIndex = -1) { 
         const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: cargoIndex, hasControls: false, padding: 25 });
         canvas.add(h); h.bringToFront();
+    }
+
+    // --- ФУНКЦИЯ РАЗМЕРНОЙ СЕТКИ ---
+    function addGrid5x5() {
+        let sizeInput = prompt("Введите размер сетки в метрах (например 10, 25, 50):", "25");
+        if (!sizeInput) return;
+        
+        let s = parseInt(sizeInput);
+        // Округление до ближайшего шага в 5 метров
+        s = Math.round(s / 5) * 5;
+        if (s < 5) s = 5;
+
+        const stepPx = 5 * PX_METER; // Шаг всегда 5 метров
+        const totalPx = s * PX_METER;
+        const lines = [];
+
+        for (let i = 0; i <= s; i += 5) {
+            let pos = i * PX_METER;
+            // Вертикальные
+            lines.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+            // Горизонтальные
+            lines.push(new fabric.Line([0, pos, totalPx, pos], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+        }
+
+        const gridGroup = new fabric.Group(lines, {
+            left: canvas.width / 2, top: canvas.height / 2,
+            originX: 'center', originY: 'center',
+            type: 'grid5x5',
+            selectable: true,
+            hasControls: false,
+            transparentCorners: false
+        });
+
+        canvas.add(gridGroup);
+        gridGroup.bringToFront();
     }
 
     function toggleCalibration() { 
@@ -327,7 +359,7 @@
         const size = 180, zoom = 2.5;
         magCtx.clearRect(0, 0, size, size); magCtx.save();
         magCtx.translate(size/2, size/2); magCtx.scale(zoom, zoom); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (['map','part','cargo'].includes(obj.type) || obj.isCalDot || obj.isRuler) obj.render(magCtx); });
+        canvas.getObjects().forEach(obj => { if (['map','part','cargo','grid5x5'].includes(obj.type) || obj.isCalDot || obj.isRuler) obj.render(magCtx); });
         magCtx.restore();
     }
 
@@ -421,7 +453,7 @@
     });
 
     canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo' || moved.isFrozen) return;
+        const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo' && moved.type !== 'grid5x5' || moved.isFrozen) return;
         const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
         canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
         updateLastPos(); syncAll();
@@ -447,14 +479,7 @@
             const tL = l * 40, tW = w * 40, wL = 1.12 * 40, axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
             const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2, fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
             let wheels = []; axX.forEach((x, idx) => { const hWheel = (idx < 2) ? 13 : 26; [-(tW/2), (tW/2 - hWheel)].forEach(posY => wheels.push(new fabric.Rect({ left: x - wL/2, top: posY, width: wL, height: hWheel, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }))); });
-            
-            const fanElements = [
-                new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }),
-                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }),
-                ...Array.from({length: 8}).map((_, i) => new fabric.Rect({ width: 2, height: fanR * 1.8, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i * 45 })),
-                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })
-            ];
-
+            const fanElements = [new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }), new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }), ...Array.from({length: 8}).map((_, i) => new fabric.Rect({ width: 2, height: fanR * 1.8, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i * 45 })), new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })];
             obj = new fabric.Group([new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }), new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), ...fanElements, ...wheels], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, isFrozen: false, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
             let modElems = []; const mL = l * 40, mW = w * 40;
@@ -478,7 +503,7 @@
     function deleteSelected() { 
         canvas.getActiveObjects().forEach(obj => { 
             if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o));
-            else if (obj.type === 'part' || obj.type === 'cargo') canvas.remove(obj); 
+            else canvas.remove(obj); 
         }); 
         canvas.discardActiveObject(); syncAll(); 
     }
