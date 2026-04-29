@@ -287,21 +287,36 @@
             const cabL = tL * 0.3, instL = axlesX[1] - cabL - wheelLen/2;
             const colorSecondary = 'white'; 
             
-            // ВЕНТИЛЯТОР И КОРПУС
-            const fanSize = instL * 0.8;
+            // НОВЫЙ ВЕНТИЛЯТОР С КОРПУСОМ И КРЫЛЬЧАТКОЙ
+            const fanBoxSize = instL * 0.85;
             const fanCX = cabL + instL / 2;
-            const fanR = fanSize / 2;
+            const fanR = (fanBoxSize * 0.8) / 2;
             
-            const fanGroup = [
-                // КОРПУС (Кожух)
-                new fabric.Rect({ left: cabL + (instL - fanSize)/2, top: -fanSize/2, width: fanSize, height: fanSize, fill: '#999', stroke: '#444', strokeWidth: 1.5 }),
-                // ОКРУЖНОСТЬ КОНТУРА
-                new fabric.Circle({ radius: fanR * 0.9, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#AAA', stroke: '#333', strokeWidth: 2 }),
-                // КРЫЛЬЧАТКА (ЛОПАСТИ)
-                new fabric.Rect({ width: 2, height: fanR * 1.6, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 0.5 }),
-                new fabric.Rect({ width: fanR * 1.6, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 0.5 }),
-                // ЦЕНТРАЛЬНАЯ ОСЬ
-                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 1 })
+            const fanElements = [
+                // Корпус (кожух)
+                new fabric.Rect({
+                    left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2,
+                    width: fanBoxSize, height: fanBoxSize,
+                    fill: '#ddd', stroke: '#555', strokeWidth: 1.5
+                }),
+                // Внутренний контур (кольцо)
+                new fabric.Circle({
+                    radius: fanR, left: fanCX, top: 0,
+                    originX: 'center', originY: 'center',
+                    fill: '#f0f0f0', stroke: '#333', strokeWidth: 2
+                }),
+                // Лопасти (крыльчатка) - 8 штук
+                ...Array.from({length: 8}).map((_, i) => new fabric.Rect({
+                    width: 2, height: fanR * 1.8,
+                    left: fanCX, top: 0, originX: 'center', originY: 'center',
+                    fill: '#333', angle: i * 45
+                })),
+                // Центр крыльчатки
+                new fabric.Circle({
+                    radius: fanR * 0.2, left: fanCX, top: 0,
+                    originX: 'center', originY: 'center',
+                    fill: '#222'
+                })
             ];
 
             let wheels = [];
@@ -309,7 +324,7 @@
             axlesX.forEach((axX, idx) => {
                 const h = (idx < 2) ? frontWidth : rearWidth;
                 [-(tW/2), (tW/2 - h)].forEach(posY => {
-                    wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: h, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
+                    wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: h, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
                 });
             });
 
@@ -323,7 +338,7 @@
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }),
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 ...radiators,
-                ...fanGroup
+                ...fanElements
             ];
 
             obj = new fabric.Group([...truckBody, ...wheels], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
