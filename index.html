@@ -122,6 +122,16 @@
         <div class="section-label">МОДУЛЯЦИЯ</div>
         <button class="btn-freeze" onclick="freezeModel()">❄️ ЗАМОРОЗИТЬ</button>
 
+        <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
+        <div class="opacity-wrap">
+            <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+        </div>
+        
+        <div class="section-label">ПРОЗР. ГРУЗА</div>
+        <div class="opacity-wrap">
+            <input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeCargoOpacity(this.value)">
+        </div>
+
         <div class="section-label">ТЕХНИКА</div>
         <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
@@ -136,16 +146,6 @@
 
         <div class="section-label">ГРУЗ</div>
         <button class="btn-red" style="background:#e6a100; color:black;" onclick="addCargo()">📦 ПОСТАВИТЬ</button>
-
-        <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
-        <div class="opacity-wrap">
-            <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
-        </div>
-        
-        <div class="section-label">ПРОЗР. ГРУЗА</div>
-        <div class="opacity-wrap">
-            <input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeCargoOpacity(this.value)">
-        </div>
         
         <div style="flex-grow: 1;"></div>
         <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearAllButMap()">🧹 ОЧИСТИТЬ</button>
@@ -218,7 +218,6 @@
             const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
             
-            // Расставляем слои активной модели
             truck.moveTo(map ? 1 : 0);
             modules.forEach((mod, idx) => {
                 if (idx > 0) {
@@ -238,7 +237,7 @@
                     const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM);
                     const offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
                     cargo.set({ left: centerX + offX, top: centerY + offY, angle: firstMod.angle, scaleX: sc, scaleY: sc });
-                    cargo.setCoords(); cargo.bringToFront(); // Груз всегда поверх
+                    cargo.setCoords(); cargo.bringToFront();
                 });
             }
 
@@ -264,7 +263,6 @@
         const cargos = canvas.getObjects().filter(o => o.type === 'cargo' && !o.isFrozen);
         if(parts.length === 0) return;
 
-        // Порядок клонирования: Тягач (низ), Модули (середина), Груз (верх)
         const truck = parts.find(p => p.vehicleType === 'truck');
         const modules = parts.filter(p => p.vehicleType === 'mod');
 
@@ -276,31 +274,27 @@
         toFreeze.forEach(obj => {
             obj.clone(cl => {
                 cl.set({ 
-                    selectable: true, // Разрешаем выделять для удаления
-                    hasControls: false, // Запрещаем менять размер/вращать
-                    lockMovementX: true, // Запрещаем двигать
+                    selectable: true, 
+                    hasControls: false, 
+                    lockMovementX: true, 
                     lockMovementY: true,
                     isFrozen: true,
                     opacity: obj.type === 'cargo' ? CARGO_OPACITY : GLOBAL_OPACITY 
                 });
                 canvas.add(cl);
-                cl.bringToFront(); // Временно
             });
         });
 
-        // После клонирования пересортируем Z-index всех объектов
         setTimeout(() => {
             const map = canvas.getObjects().find(o => o.type === 'map');
             const frozen = canvas.getObjects().filter(o => o.isFrozen);
             const active = canvas.getObjects().filter(o => !o.isFrozen && o.type !== 'map' && o.type !== 'handle');
             
             if(map) map.sendToBack();
-            // Замороженные внизу, но над картой
             frozen.forEach(f => {
                 if(f.vehicleType === 'truck') f.sendToBack();
                 if(f.type === 'cargo') f.bringToFront();
             });
-            // Активные всегда сверху
             active.forEach(a => a.bringToFront());
             canvas.requestRenderAll();
         }, 50);
@@ -368,7 +362,6 @@
             if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
             return; 
         }
-        // Разрешаем тащить карту, если нажали на замороженный объект
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot || opt.target.isFrozen) isDraggingCanvas = true;
         updateLastPos();
     });
@@ -416,7 +409,7 @@
 
     canvas.on('object:moving', (e) => {
         const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo') return;
-        if (moved.isFrozen) return; // Не двигаем замороженное
+        if (moved.isFrozen) return; 
         const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
         canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
         updateLastPos(); syncAll();
@@ -480,7 +473,6 @@
 
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
     
-    // Теперь удаляет всё выделенное, включая замороженные объекты
     function deleteSelected() { 
         canvas.getActiveObjects().forEach(obj => { 
             if (obj.type === 'part' || obj.type === 'cargo') canvas.remove(obj); 
