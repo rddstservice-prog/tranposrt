@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HeavyTransport THP</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    
+    <style>
+        :root { --red: #A2231D; --border: #444; --blue: #2196F3; --orange: #FF8C00; }
+        * { box-sizing: border-box; -webkit-user-select: none; }
+        
+        body { 
+            margin: 0; font-family: sans-serif; background: #000; color: white; 
+            display: flex; height: 100vh; width: 100vw; overflow: hidden; position: fixed; 
+        }
+
+        #main-app { display: flex; width: 100%; height: 100%; }
+        
+        #sidebar { 
+            width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); 
+            display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 150; 
+            overflow-y: auto; touch-action: pan-y !important; -webkit-overflow-scrolling: touch;
+            padding-top: env(safe-area-inset-top); height: 100%;
+        }
+        
+        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
+        .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
+        .btn-orange { background: var(--orange); color: black; }
+        .btn-active-red { background: var(--red) !important; color: white !important; }
+
+        .freeze-split { display: flex; width: 100%; gap: 2px; flex-shrink: 0; }
+        .btn-fz { width: 50%; background: #008080; font-size: 7px; border: 1px solid #00ffff; padding: 12px 0; border-radius: 6px; }
+
+        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
+        
+        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; height: 100%; touch-action: none; }
+        
+        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: var(--blue); }
+
+        .overlay-msg { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.9); color: white; padding: 10px 20px; border-radius: 15px; 
+            font-size: 11px; z-index: 1000; display: none; border: 2px solid var(--blue); 
+        }
+        
+        .bottom-ctrl {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.9); padding: 12px; border-radius: 20px;
+            display: none; z-index: 1100; flex-direction: column; gap: 8px; align-items: center; min-width: 150px;
+        }
+        .ctrl-row { display: flex; gap: 6px; justify-content: center; }
+        .btn-ovl { width: 38px; height: 38px; font-size: 18px; background: #444; color: white; border-radius: 8px; border: 1px solid #666; display: flex; align-items: center; justify-content: center; }
+        .btn-ok { width: 100px; height: 35px; font-size: 11px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; text-transform: uppercase; }
+
+        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 2000; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
+        #mag-canvas { position: absolute; top: 0; left: 0; }
+        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; z-index: 2001; pointer-events: none; }
+        #mag-crosshair::before { content:''; position:absolute; background:var(--blue); width:100%; height:2px; top:14px; left:0; }
+        #mag-crosshair::after { content:''; position:absolute; background:var(--blue); height:100%; width:2px; left:14px; top:0; }
+    </style>
+</head>
+<body>
+
+<div id="main-app">
+    <div id="sidebar">
+        <div class="section-label">КАРТА</div>
+        <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
+        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+        
+        <div class="section-label">МОДУЛЯЦИЯ</div>
+        <div class="freeze-split">
+            <button class="btn-fz" onclick="freezeModel('fwd')">❄️ ВПЕРЕД</button>
+            <button class="btn-fz" onclick="freezeModel('bwd')">❄️ НАЗАД</button>
+        </div>
+        <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
+        <button class="btn-orange" id="grid-btn" onclick="gridMenu()">📏 РАЗМ. СЕТКА</button>
+
+        <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
+        <div class="opacity-wrap"><input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
+        <div class="section-label">ПРОЗР. ГРУЗА</div>
+        <div class="opacity-wrap"><input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
+
+        <div class="section-label">ТЕХНИКА</div>
+        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
+        <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
+        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0-5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0-30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+        
+        <div class="section-label">МОДУЛИ THP</div>
+        <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
+        <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
+        <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
+        <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
+        <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
+
+        <div class="section-label">ГРУЗ</div>
+        <button class="btn-red" style="background:#e6a100; color:black;" onclick="addCargo()">📦 ПОСТАВИТЬ</button>
+        
+        <div style="flex-grow: 1;"></div>
+        <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearAllButMap()">🧹 ОЧИСТИТЬ</button>
+        <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
+        <div style="min-height: 80px;"></div> 
+    </div>
+
+    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+
+    <div id="canvas-wrap">
+        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
+        <div id="ovl-text" style="display:none"></div>
+
+        <div id="grid-controls" class="bottom-ctrl">
+            <div style="font-size:10px; color:var(--orange);">УПРАВЛЕНИЕ СЕТКОЙ</div>
+            <div class="ctrl-row">
+                <button class="btn-ovl" onmousedown="startAction('gridMove',0,-5)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',0,-5)" ontouchend="stopAction()">▲</button>
+            </div>
+            <div class="ctrl-row">
+                <button class="btn-ovl" onmousedown="startAction('gridMove',-5,0)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',-5,0)" ontouchend="stopAction()">◀</button>
+                <button class="btn-ovl" onmousedown="startAction('gridMove',5,0)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',5,0)" ontouchend="stopAction()">▶</button>
+            </div>
+            <div class="ctrl-row">
+                <button class="btn-ovl" onmousedown="startAction('gridMove',0,5)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',0,5)" ontouchend="stopAction()">▼</button>
+            </div>
+            <div class="ctrl-row" style="margin-top:5px;">
+                <button class="btn-ovl" style="background:#555" onmousedown="startAction('gridRot',-2)" onmouseup="stopAction()" ontouchstart="startAction('gridRot',-2)" ontouchend="stopAction()">⟲</button>
+                <button class="btn-ovl" style="background:#555" onmousedown="startAction('gridRot',2)" onmouseup="stopAction()" ontouchstart="startAction('gridRot',2)" ontouchend="stopAction()">⟳</button>
+            </div>
+            <button class="btn-ok" onclick="confirmGrid()">ГОТОВО</button>
+        </div>
+
+        <div id="cargo-controls" class="bottom-ctrl">
+            <div style="font-size:10px; color:#e6a100;">СМЕЩЕНИЕ ГРУЗА</div>
+            <div class="ctrl-row">
+                <button class="btn-ovl" onmousedown="startAction('cargoMove',-0.05)" onmouseup="stopAction()" ontouchstart="startAction('cargoMove',-0.05)" ontouchend="stopAction()">⬅️</button>
+                <button class="btn-ovl" onmousedown="startAction('cargoMove',0.05)" onmouseup="stopAction()" ontouchstart="startAction('cargoMove',0.05)" ontouchend="stopAction()">➡️</button>
+            </div>
+            <button class="btn-ok" onclick="confirmCargo()">ГОТОВО</button>
+        </div>
+
+        <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
+        <canvas id="c"></canvas>
+    </div>
+</div>
+
+<script>
+    const tg = window.Telegram?.WebApp; if(tg) { tg.expand(); tg.ready(); }
+    
+    const wrap = document.getElementById('canvas-wrap');
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
+    const magEl = document.getElementById('magnifier'), magCtx =
