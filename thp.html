@@ -10,11 +10,11 @@
     
     <style>
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; --orange: #FF8C00; }
-        * { box-sizing: border-box; -webkit-user-select: none; }
+        * { box-sizing: border-box; -webkit-user-select: none; touch-action: manipulation; }
         
         body { 
             margin: 0; font-family: sans-serif; background: #000; color: white; 
-            display: flex; height: 100vh; width: 100vw; overflow: hidden; position: fixed; 
+            display: flex; height: 100vh; height: 100dvh; width: 100vw; overflow: hidden; position: fixed; 
         }
 
         #main-app { display: flex; width: 100%; height: 100%; }
@@ -22,14 +22,14 @@
         #sidebar { 
             width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); 
             display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 150; 
-            overflow-y: auto; touch-action: pan-y !important; -webkit-overflow-scrolling: touch;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
             padding-top: env(safe-area-inset-top); height: 100%;
         }
         
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .btn-orange { background: var(--orange); color: black; }
-        .btn-active-red { background: var(--red) !important; color: white !important; }
+        .btn-active { background: #008080 !important; border: 1px solid #0ff; }
 
         .freeze-split { display: flex; width: 100%; gap: 2px; flex-shrink: 0; }
         .btn-fz { width: 50%; background: #008080; font-size: 7px; border: 1px solid #00ffff; padding: 12px 0; border-radius: 6px; }
@@ -54,7 +54,7 @@
         }
         .ctrl-row { display: flex; gap: 6px; justify-content: center; }
         .btn-ovl { width: 38px; height: 38px; font-size: 18px; background: #444; color: white; border-radius: 8px; border: 1px solid #666; display: flex; align-items: center; justify-content: center; }
-        .btn-ok { width: 100px; height: 35px; font-size: 11px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; text-transform: uppercase; }
+        .btn-ok { width: 100px; height: 35px; font-size: 11px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; text-transform: uppercase; margin-top: 5px; }
 
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 2000; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
@@ -77,23 +77,22 @@
             <button class="btn-fz" onclick="freezeModel('bwd')">❄️ НАЗАД</button>
         </div>
         <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
-        <button class="btn-orange" id="grid-btn" onclick="gridMenu()">📏 РАЗМ. СЕТКА</button>
+        <button class="btn-orange" id="grid-btn" onclick="toggleGrid()">📏 РАЗМ. СЕТКА</button>
 
         <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
-        <div class="opacity-wrap"><input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
+        <div class="opacity-wrap"><input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.7"></div>
         <div class="section-label">ПРОЗР. ГРУЗА</div>
-        <div class="opacity-wrap"><input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
+        <div class="opacity-wrap"><input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.7"></div>
 
         <div class="section-label">ТЕХНИКА</div>
         <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0-5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0-30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+        <button class="btn-red" style="background:#555" onclick="addCustomBeam()">🏗 БАЛКИ</button>
         
         <div class="section-label">МОДУЛИ THP</div>
         <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
         <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
         <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
-        <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
         <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
 
         <div class="section-label">ГРУЗ</div>
@@ -102,14 +101,13 @@
         <div style="flex-grow: 1;"></div>
         <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearAllButMap()">🧹 ОЧИСТИТЬ</button>
         <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
-        <div style="min-height: 80px;"></div> 
+        <div style="min-height: 50px;"></div> 
     </div>
 
     <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
 
     <div id="canvas-wrap">
         <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
-        <div id="ovl-text" style="display:none"></div>
 
         <div id="grid-controls" class="bottom-ctrl">
             <div style="font-size:10px; color:var(--orange);">УПРАВЛЕНИЕ СЕТКОЙ</div>
@@ -130,15 +128,6 @@
             <button class="btn-ok" onclick="confirmGrid()">ГОТОВО</button>
         </div>
 
-        <div id="cargo-controls" class="bottom-ctrl">
-            <div style="font-size:10px; color:#e6a100;">СМЕЩЕНИЕ ГРУЗА</div>
-            <div class="ctrl-row">
-                <button class="btn-ovl" onmousedown="startAction('cargoMove',-0.05)" onmouseup="stopAction()" ontouchstart="startAction('cargoMove',-0.05)" ontouchend="stopAction()">⬅️</button>
-                <button class="btn-ovl" onmousedown="startAction('cargoMove',0.05)" onmouseup="stopAction()" ontouchstart="startAction('cargoMove',0.05)" ontouchend="stopAction()">➡️</button>
-            </div>
-            <button class="btn-ok" onclick="confirmCargo()">ГОТОВО</button>
-        </div>
-
         <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
         <canvas id="c"></canvas>
     </div>
@@ -148,5 +137,197 @@
     const tg = window.Telegram?.WebApp; if(tg) { tg.expand(); tg.ready(); }
     
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
-    const magEl = document.getElementById('magnifier'), magCtx =
+    const canvas = new fabric.Canvas('c', { 
+        width: wrap.clientWidth, 
+        height: wrap.clientHeight, 
+        backgroundColor: '#333', 
+        selection: true,
+        imageSmoothingEnabled: false,
+        touchCornerSize: 35
+    });
+
+    let PIXELS_PER_METER = 20;
+    let isCalibrating = false;
+    let calStart = null;
+    let actionInterval = null;
+    let gridLines = [];
+
+    // --- Масштабирование и карта ---
+    function loadMap(e) {
+        const reader = new FileReader();
+        reader.onload = function(f) {
+            fabric.Image.fromURL(f.target.result, (img) => {
+                canvas.setBackgroundImage(img, canvas.renderAll.bind(canvas), {
+                    scaleX: canvas.width / img.width,
+                    scaleY: canvas.height / img.height
+                });
+            });
+        };
+        reader.readAsDataURL(e.target.files[0]);
+    }
+
+    function toggleCalibration() {
+        isCalibrating = !isCalibrating;
+        const btn = document.getElementById('cal-btn');
+        const msg = document.getElementById('cal-msg');
+        btn.classList.toggle('btn-active', isCalibrating);
+        msg.style.display = isCalibrating ? 'block' : 'none';
+        canvas.selection = !isCalibrating;
+    }
+
+    canvas.on('mouse:down', (opt) => {
+        if (!isCalibrating) return;
+        calStart = opt.absolutePointer;
+        document.getElementById('magnifier').style.display = 'block';
+    });
+
+    canvas.on('mouse:move', (opt) => {
+        if (document.getElementById('magnifier').style.display === 'block') {
+            updateMagnifier(opt.absolutePointer);
+        }
+    });
+
+    canvas.on('mouse:up', (opt) => {
+        if (!isCalibrating || !calStart) return;
+        const calEnd = opt.absolutePointer;
+        const dx = calEnd.x - calStart.x;
+        const dy = calEnd.y - calStart.y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        
+        document.getElementById('magnifier').style.display = 'none';
+        
+        const meters = prompt("Введите длину линии в метрах:", "10");
+        if (meters && parseFloat(meters) > 0) {
+            PIXELS_PER_METER = dist / parseFloat(meters);
+            tg.showScanQrPopup && tg.showAlert(`Масштаб: ${PIXELS_PER_METER.toFixed(2)} px/m`);
+        }
+        toggleCalibration();
+        calStart = null;
+    });
+
+    // --- Лупа ---
+    const magCanvas = document.getElementById('mag-canvas');
+    const magCtx = magCanvas.getContext('2d');
+    function updateMagnifier(p) {
+        magCtx.fillStyle = '#111';
+        magCtx.fillRect(0,0,180,180);
+        magCtx.save();
+        magCtx.translate(90, 90);
+        magCtx.scale(2.5, 2.5);
+        magCtx.translate(-p.x, -p.y);
+        canvas.renderCanvas(magCtx, canvas.getObjects());
+        magCtx.restore();
+    }
+
+    // --- Техника ---
+    function addVehicle(name, l, w, color, axisL, type, offset = 0, isBeam = false) {
+        const rect = new fabric.Rect({
+            width: l * PIXELS_PER_METER,
+            height: w * PIXELS_PER_METER,
+            fill: color === 'multi' ? '#555' : color,
+            opacity: document.getElementById('op-slider').value,
+            stroke: 'white',
+            strokeWidth: 1,
+            originX: 'center',
+            originY: 'center'
+        });
+
+        const text = new fabric.Text(name, { fontSize: 12, fill: 'white', originX: 'center', originY: 'center', angle: -90 });
+        const group = new fabric.Group([rect, text], { left: 100, top: 100, type: 'vehicle' });
+        
+        canvas.add(group);
+        canvas.setActiveObject(group);
+    }
+
+    function addCargo() {
+        const l = prompt("Длина груза (м):", "12");
+        const w = prompt("Ширина груза (м):", "3.5");
+        if (!l || !w) return;
+
+        const cargo = new fabric.Rect({
+            width: parseFloat(l) * PIXELS_PER_METER,
+            height: parseFloat(w) * PIXELS_PER_METER,
+            fill: '#e6a100',
+            opacity: document.getElementById('cargo-op-slider').value,
+            stroke: 'black',
+            strokeWidth: 2,
+            left: 150,
+            top: 150,
+            type: 'cargo'
+        });
+        canvas.add(cargo);
+    }
+
+    function addCustomBeam() {
+        const w = prompt('Ширина (3.0-5.5):', '3.0');
+        const l = prompt('Длина (4.0-30.0):', '8.5');
+        if(w && l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0);
+    }
+
+    // --- Сетка ---
+    function toggleGrid() {
+        const ctrl = document.getElementById('grid-controls');
+        const active = ctrl.style.display === 'flex';
+        if (active) {
+            confirmGrid();
+        } else {
+            ctrl.style.display = 'flex';
+            drawGrid();
+        }
+    }
+
+    function drawGrid() {
+        gridLines.forEach(l => canvas.remove(l));
+        gridLines = [];
+        const step = PIXELS_PER_METER; 
+        for (let i = -20; i < 40; i++) {
+            let l = new fabric.Line([i*step, -1000, i*step, 1000], { stroke: '#FF8C00', opacity: 0.3, selectable: false });
+            gridLines.push(l); canvas.add(l);
+        }
+        canvas.renderAll();
+    }
+
+    function confirmGrid() {
+        document.getElementById('grid-controls').style.display = 'none';
+    }
+
+    // --- Утилиты ---
+    function startAction(act, val1, val2) {
+        stopAction();
+        actionInterval = setInterval(() => {
+            if (act === 'gridMove') {
+                gridLines.forEach(l => { l.left += val1; l.top += val2; });
+            }
+            canvas.renderAll();
+        }, 50);
+    }
+
+    function stopAction() { clearInterval(actionInterval); }
+
+    function deleteSelected() {
+        canvas.getActiveObjects().forEach(obj => canvas.remove(obj));
+        canvas.discardActiveObject().renderAll();
+    }
+
+    function clearAllButMap() {
+        if(confirm("Очистить все модули?")) {
+            canvas.getObjects().forEach(obj => {
+                if(obj.type !== 'image') canvas.remove(obj);
+            });
+        }
+    }
+
+    // Слайдеры прозрачности
+    document.getElementById('op-slider').oninput = function() {
+        canvas.getObjects().forEach(o => { if(o.type === 'vehicle' || o.group) o.set('opacity', this.value); });
+        canvas.renderAll();
+    };
+
+    window.addEventListener('resize', () => {
+        canvas.setWidth(wrap.clientWidth);
+        canvas.setHeight(wrap.clientHeight);
+    });
+
+</script>
+</body>
+</html>
