@@ -52,9 +52,10 @@
             flex-direction: column; 
             padding: 10px 5px; 
             gap: 8px; 
-            z-index: 50; 
+            z-index: 150; 
             overflow-y: auto; 
-            touch-action: pan-y; 
+            overflow-x: hidden;
+            touch-action: pan-y !important; 
             -webkit-overflow-scrolling: touch;
             padding-top: env(safe-area-inset-top); 
             height: 100%;
@@ -258,6 +259,11 @@
         canvas.renderAll();
     }
 
+    function createHandle(x, y, t, cargoIndex = -1) { 
+        const h = new fabric.Circle({ left: x, top: y, radius: 10, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: cargoIndex, hasControls: false, padding: 20 });
+        canvas.add(h); h.bringToFront();
+    }
+
     function addGrid5x5() {
         let sizeInput = prompt("Размер сетки (округление до 5м):", "25");
         if (!sizeInput) return;
@@ -269,7 +275,9 @@
             let pos = i * PX_METER;
             gridItems.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
             gridItems.push(new fabric.Line([0, pos, totalPx, pos], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
-            gridItems.push(new fabric.Text(i + "м", { left: totalPx - pos, top: totalPx + 5, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originX: 'center', originY: 'top' }));
+            // Горизонтальная ось (0 слева, пошло направо):
+            gridItems.push(new fabric.Text(i + "м", { left: pos, top: totalPx + 5, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originX: 'center', originY: 'top' }));
+            // Вертикальная ось (снизу вверх):
             gridItems.push(new fabric.Text(i + "м", { left: -8, top: totalPx - pos, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
 
