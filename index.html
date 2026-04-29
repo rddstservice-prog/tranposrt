@@ -23,7 +23,6 @@
             align-items: center; justify-content: center; padding: 20px;
         }
         .hub-title { font-size: 18px; font-weight: bold; margin-bottom: 30px; color: var(--blue); text-transform: uppercase; letter-spacing: 2px; }
-        .hub-grid { display: grid; grid-template-columns: 1fr; gap: 15px; width: 100%; max-width: 300px; }
         .hub-card { background: #222; border: 2px solid var(--border); padding: 20px; border-radius: 12px; text-align: center; cursor: pointer; transition: 0.2s; }
         .hub-card:active { transform: scale(0.95); border-color: var(--blue); }
 
@@ -40,9 +39,7 @@
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .btn-freeze { background: #008080; border: 1px solid #00ffff; }
         .btn-orange { background: var(--orange); color: black; }
-        .btn-active-red { background: var(--red) !important; color: white !important; animation: pulse 1.5s infinite; }
-
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+        .btn-active-red { background: var(--red) !important; color: white !important; }
 
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         
@@ -52,15 +49,17 @@
         #op-slider, #cargo-op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
 
         .overlay-msg { 
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
-            background: rgba(0,0,0,0.9); color: white; padding: 12px 15px; border-radius: 15px; 
-            font-size: 11px; z-index: 1000; display: none; border: 2px solid var(--blue); text-align: center; 
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.95); color: white; padding: 10px; 
+            border-radius: 12px; font-size: 10px; z-index: 1000; 
+            display: none; border: 2px solid var(--blue); text-align: center;
+            width: 140px; 
         }
         
-        .overlay-controls { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; pointer-events: auto; }
-        .overlay-row { display: flex; gap: 5px; justify-content: center; }
-        .btn-ovl { width: 40px; height: 40px; font-size: 18px; background: #444; color: white; border-radius: 8px; border: 1px solid #666; display: flex; align-items: center; justify-content: center; }
-        .btn-ovl-ok { width: 100px; height: 35px; font-size: 12px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; }
+        .overlay-controls { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; pointer-events: auto; }
+        .overlay-row { display: flex; gap: 4px; justify-content: center; }
+        .btn-ovl { width: 32px; height: 32px; font-size: 14px; background: #333; color: white; border-radius: 6px; border: 1px solid #555; }
+        .btn-ovl-ok { width: 100%; height: 30px; font-size: 11px; font-weight: bold; background: #4CAF50; color: white; border-radius: 6px; border: none; margin-top: 4px; }
 
         #cargo-controls {
             position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
@@ -68,9 +67,9 @@
             border: 2px solid #e6a100; display: none; z-index: 1100; flex-direction: column; gap: 10px; align-items: center;
         }
 
-        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 2000; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
+        #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 2000; pointer-events: none; }
         #mag-canvas { position: absolute; top: 0; left: 0; }
-        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; z-index: 2001; pointer-events: none;}
+        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; }
         #mag-crosshair::before { content:''; position:absolute; background:var(--blue); width:100%; height:2px; top:14px; left:0; }
         #mag-crosshair::after { content:''; position:absolute; background:var(--blue); height:100%; width:2px; left:14px; top:0; }
     </style>
@@ -79,10 +78,7 @@
 
 <div id="hub-screen">
     <div class="hub-title">Выберите редактор</div>
-    <div class="hub-grid">
-        <div class="hub-card" onclick="startEditor('truck-goose')"><h3>🚛 Тягач + Гусь</h3><p>Модульные перевозки THP</p></div>
-        <div class="hub-card locked"><h3>🏗 Спецтехника</h3><p>Скоро добавится</p></div>
-    </div>
+    <div class="hub-card" onclick="startEditor('truck-goose')"><h3>🚛 Тягач + Гусь</h3><p>Модульные перевозки THP</p></div>
 </div>
 
 <div id="main-app">
@@ -98,14 +94,13 @@
 
         <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
         <div class="opacity-wrap"><input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
-        
         <div class="section-label">ПРОЗР. ГРУЗА</div>
         <div class="opacity-wrap"><input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6"></div>
 
         <div class="section-label">ТЕХНИКА</div>
         <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
-        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
+        <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0-5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0-30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
         
         <div class="section-label">МОДУЛИ THP</div>
         <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
@@ -120,14 +115,14 @@
         <div style="flex-grow: 1;"></div>
         <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearAllButMap()">🧹 ОЧИСТИТЬ</button>
         <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
-        <div style="min-height: 100px;"></div> 
+        <div style="min-height: 80px;"></div> 
     </div>
 
     <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
 
     <div id="canvas-wrap">
         <div id="cal-msg" class="overlay-msg">
-            <span id="ovl-text">УДЕРЖИВАЙТЕ 1 СЕК</span>
+            <span id="ovl-text">СЕТКА</span>
             <div id="ovl-controls" class="overlay-controls" style="display:none;">
                 <div class="overlay-row">
                     <button class="btn-ovl" onmousedown="startMoveGrid(0, -5)" onmouseup="stopAllTimer()" ontouchstart="startMoveGrid(0, -5)" ontouchend="stopAllTimer()">▲</button>
@@ -139,21 +134,21 @@
                 <div class="overlay-row">
                     <button class="btn-ovl" onmousedown="startMoveGrid(0, 5)" onmouseup="stopAllTimer()" ontouchstart="startMoveGrid(0, 5)" ontouchend="stopAllTimer()">▼</button>
                 </div>
-                <div class="overlay-row" style="margin-top:5px;">
+                <div class="overlay-row" style="margin-top:2px;">
                     <button class="btn-ovl" style="background:#555" onmousedown="startRotateGrid(-2)" onmouseup="stopAllTimer()" ontouchstart="startRotateGrid(-2)" ontouchend="stopAllTimer()">⟲</button>
                     <button class="btn-ovl" style="background:#555" onmousedown="startRotateGrid(2)" onmouseup="stopAllTimer()" ontouchstart="startRotateGrid(2)" ontouchend="stopAllTimer()">⟳</button>
                 </div>
-                <button class="btn-ovl-ok" style="margin-top:10px;" onclick="confirmGrid()">ГОТОВО</button>
+                <button class="btn-ovl-ok" onclick="confirmGrid()">ГОТОВО</button>
             </div>
         </div>
 
         <div id="cargo-controls">
-            <div style="font-size:10px; font-weight:bold; color:#e6a100; margin-bottom:5px;">СМЕЩЕНИЕ ГРУЗА (М)</div>
+            <div style="font-size:10px; color:#e6a100;">СМЕЩЕНИЕ ГРУЗА</div>
             <div class="overlay-row">
                 <button class="btn-ovl" onmousedown="startMoveCargo(-0.05)" onmouseup="stopAllTimer()" ontouchstart="startMoveCargo(-0.05)" ontouchend="stopAllTimer()">⬅️</button>
                 <button class="btn-ovl" onmousedown="startMoveCargo(0.05)" onmouseup="stopAllTimer()" ontouchstart="startMoveCargo(0.05)" ontouchend="stopAllTimer()">➡️</button>
             </div>
-            <button class="btn-ovl-ok" style="margin-top:10px;" onclick="confirmCargo()">ГОТОВО</button>
+            <button class="btn-ovl-ok" onclick="confirmCargo()">ГОТОВО</button>
         </div>
 
         <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
@@ -164,8 +159,7 @@
 <script>
     const tg = window.Telegram?.WebApp; if(tg) { tg.expand(); tg.ready(); }
     function startEditor(type) { if(type === 'truck-goose') { document.getElementById('hub-screen').style.display = 'none'; document.getElementById('main-app').style.display = 'flex'; setTimeout(() => { canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight }); canvas.requestRenderAll(); }, 50); } }
-    window.oncontextmenu = function(e) { e.preventDefault(); return false; };
-
+    
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
@@ -175,10 +169,8 @@
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
     let isRulerMode = false, rulerPoints = [];
-    let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6;
-    let activeCargo = null, currentGrid = null, actionInterval = null;
+    let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargo = null, currentGrid = null, actionInterval = null;
 
-    // СЛУШАТЕЛИ
     document.getElementById('op-slider').addEventListener('input', (e) => { GLOBAL_OPACITY = parseFloat(e.target.value); canvas.getObjects().filter(o => o.type === 'part').forEach(o => o.set('opacity', GLOBAL_OPACITY)); canvas.requestRenderAll(); });
     document.getElementById('cargo-op-slider').addEventListener('input', (e) => { CARGO_OPACITY = parseFloat(e.target.value); canvas.getObjects().filter(o => o.type === 'cargo').forEach(o => o.set('opacity', CARGO_OPACITY)); canvas.requestRenderAll(); });
 
@@ -216,29 +208,25 @@
 
     function gridMenu() {
         let action = prompt("1 - Добавить\n2 - Удалить все", "1");
-        if (action === "1") addGrid5x5();
-        else if (action === "2") { canvas.getObjects().filter(o => o.type === 'grid5x5').forEach(g => canvas.remove(g)); overlayMsg.style.display = 'none'; currentGrid = null; canvas.requestRenderAll(); }
+        if (action === "1") {
+            let sInput = prompt("Размер (м):", "25"); if (!sInput) return;
+            let s = Math.round(parseInt(sInput) / 5) * 5; if (s < 5) s = 5;
+            const totalPx = s * PX_METER, items = [];
+            for (let i = 0; i <= s; i += 5) {
+                let p = i * PX_METER;
+                items.push(new fabric.Line([p, 0, p, totalPx], { stroke: '#FF8C00', strokeWidth: 3, opacity: 0.8 }));
+                items.push(new fabric.Line([0, p, totalPx, p], { stroke: '#FF8C00', strokeWidth: 3, opacity: 0.8 }));
+                items.push(new fabric.Text(i + "м", { left: p, top: totalPx + 10, fontSize: 22, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
+                items.push(new fabric.Text(i + "м", { left: -15, top: totalPx - p, fontSize: 22, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
+            }
+            currentGrid = new fabric.Group(items, { left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', type: 'grid5x5', selectable: false, evented: false, gridId: "grid_" + Date.now() });
+            canvas.add(currentGrid); syncAll();
+            ovlText.innerText = "УПРАВЛЕНИЕ СЕТКОЙ"; ovlControls.style.display = 'flex'; overlayMsg.style.display = 'block';
+        } else if (action === "2") { canvas.getObjects().filter(o => o.type === 'grid5x5').forEach(g => canvas.remove(g)); overlayMsg.style.display = 'none'; ovlControls.style.display = 'none'; currentGrid = null; canvas.requestRenderAll(); }
     }
 
-    function addGrid5x5() {
-        let sInput = prompt("Размер (м):", "25"); if (!sInput) return;
-        let s = Math.round(parseInt(sInput) / 5) * 5; if (s < 5) s = 5;
-        const totalPx = s * PX_METER, items = [];
-        for (let i = 0; i <= s; i += 5) {
-            let p = i * PX_METER;
-            items.push(new fabric.Line([p, 0, p, totalPx], { stroke: '#FF8C00', strokeWidth: 3, opacity: 0.8 }));
-            items.push(new fabric.Line([0, p, totalPx, p], { stroke: '#FF8C00', strokeWidth: 3, opacity: 0.8 }));
-            items.push(new fabric.Text(i + "м", { left: p, top: totalPx + 10, fontSize: 24, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
-            items.push(new fabric.Text(i + "м", { left: -15, top: totalPx - p, fontSize: 24, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
-        }
-        currentGrid = new fabric.Group(items, { left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', type: 'grid5x5', selectable: false, evented: false, gridId: "grid_" + Date.now() });
-        canvas.add(currentGrid); syncAll();
-        ovlText.innerText = "УПРАВЛЕНИЕ СЕТКОЙ"; ovlControls.style.display = 'flex'; overlayMsg.style.display = 'block';
-    }
-
-    // ЛОГИКА УДЕРЖАНИЯ СЕТКИ
-    function startMoveGrid(dx, dy) { if(actionInterval) clearInterval(actionInterval); if(currentGrid) { actionInterval = setInterval(() => { currentGrid.left += dx; currentGrid.top += dy; canvas.requestRenderAll(); }, 40); } }
-    function startRotateGrid(deg) { if(actionInterval) clearInterval(actionInterval); if(currentGrid) { actionInterval = setInterval(() => { currentGrid.angle += deg; canvas.requestRenderAll(); }, 50); } }
+    function startMoveGrid(dx, dy) { if(actionInterval) clearInterval(actionInterval); if(currentGrid) actionInterval = setInterval(() => { currentGrid.left += dx; currentGrid.top += dy; canvas.requestRenderAll(); }, 30); }
+    function startRotateGrid(deg) { if(actionInterval) clearInterval(actionInterval); if(currentGrid) actionInterval = setInterval(() => { currentGrid.angle += deg; canvas.requestRenderAll(); }, 50); }
     function stopAllTimer() { if(actionInterval) clearInterval(actionInterval); }
     function confirmGrid() { if(currentGrid) { currentGrid.set({ isFrozen: true }); currentGrid = null; ovlControls.style.display = 'none'; overlayMsg.style.display = 'none'; syncAll(); } }
 
@@ -250,75 +238,34 @@
         });
         canvas.add(activeCargo); cargoBox.style.display = 'flex'; syncAll();
     }
-    function startMoveCargo(step) { if(actionInterval) clearInterval(actionInterval); if(activeCargo) { actionInterval = setInterval(() => { activeCargo.offsetMeters += step; syncAll(); }, 50); } }
+    function startMoveCargo(step) { if(actionInterval) clearInterval(actionInterval); if(activeCargo) { activeCargo.offsetMeters += step; syncAll(); actionInterval = setInterval(() => { activeCargo.offsetMeters += step; syncAll(); }, 50); } }
     function confirmCargo() { if(activeCargo) { activeCargo.isPlaced = true; activeCargo = null; cargoBox.style.display = 'none'; syncAll(); } }
 
-    function toggleCalibration() { 
-        isCalibrating = !isCalibrating; isRulerMode = false; calPoints = []; 
-        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); 
-        document.getElementById('cal-btn').classList.toggle('btn-active-red', isCalibrating);
-        document.getElementById('ruler-btn').classList.remove('btn-active-red');
-        ovlText.innerText = "УДЕРЖИВАЙТЕ 1 СЕК"; ovlControls.style.display = 'none'; overlayMsg.style.display = isCalibrating ? 'block' : 'none'; 
+    function freezeModel() {
+        const active = canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen);
+        if(active.length === 0) return;
+        const gId = "group_" + Date.now();
+        const rad = (active[0].angle * Math.PI)/180;
+        const shiftX = (2 * PX_METER) * Math.cos(rad - Math.PI/4); // Отброс на 2 метра
+        const shiftY = (2 * PX_METER) * Math.sin(rad - Math.PI/4);
+
+        // 1. Оставляем копию (замороженную) на месте
+        active.forEach(obj => {
+            obj.clone(cl => {
+                cl.set({ selectable:true, hasControls:false, lockMovementX:true, lockMovementY:true, isFrozen:true, freezeGroup:gId, opacity: obj.type==='cargo'?CARGO_OPACITY:GLOBAL_OPACITY });
+                canvas.add(cl);
+            });
+        });
+
+        // 2. Активную модель отбрасываем
+        active.forEach(obj => {
+            obj.left += shiftX;
+            obj.top += shiftY;
+            obj.setCoords();
+        });
+
+        setTimeout(syncAll, 100);
     }
-    function toggleRuler() { 
-        isRulerMode = !isRulerMode; isCalibrating = false; rulerPoints = []; 
-        canvas.getObjects().filter(o => o.isRuler).forEach(o => canvas.remove(o)); 
-        document.getElementById('ruler-btn').classList.toggle('btn-active-red', isRulerMode);
-        document.getElementById('cal-btn').classList.remove('btn-active-red');
-        ovlText.innerText = "ЛИНЕЙКА: УДЕРЖИВАЙТЕ ТОЧКИ"; ovlControls.style.display = 'none'; overlayMsg.style.display = isRulerMode ? 'block' : 'none'; syncAll(); 
-    }
-
-    function updateMagnifier(ptr) {
-        if (!isCalibrating && !isRulerMode) return;
-        magEl.style.display = 'block';
-        magCtx.clearRect(0, 0, 180, 180); magCtx.save(); magCtx.translate(90, 90); magCtx.scale(2.5, 2.5); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (['map','part','cargo','grid5x5'].includes(obj.type) || obj.isCalDot || obj.isRuler) obj.render(magCtx); });
-        magCtx.restore();
-    }
-
-    canvas.on('mouse:down', function(opt) {
-        const touches = opt.e.touches;
-        if (touches && touches.length === 2) { canvas.selection = false; isDraggingCanvas = false; rotationTarget = null; lastDistance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); return; }
-        const cX = touches ? touches[0].clientX : opt.e.clientX, cY = touches ? touches[0].clientY : opt.e.clientY, ptr = canvas.getPointer(opt.e);
-        startPosX = lastPosX = cX; startPosY = lastPosY = cY; canvas.selection = true;
-        if (isCalibrating || isRulerMode) {
-            updateMagnifier(ptr);
-            calTimer = setTimeout(() => {
-                if(isCalibrating) { calPoints.push(ptr); canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', isCalDot: true })); if (calPoints.length === 2) { let m = prompt("Метры:", "10"); if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m); toggleCalibration(); syncAll(); } }
-                else if(isRulerMode) { rulerPoints.push(ptr); canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 6, fill: 'white', stroke: '#000', strokeWidth: 1, originX: 'center', originY: 'center', isRuler: true })); if (rulerPoints.length === 2) { let distM = (Math.hypot(rulerPoints[0].x - rulerPoints[1].x, rulerPoints[0].y - rulerPoints[1].y) / PX_METER).toFixed(2); canvas.add(new fabric.Line([rulerPoints[0].x, rulerPoints[0].y, rulerPoints[1].x, rulerPoints[1].y], { stroke: 'white', strokeWidth: 2, strokeDashArray: [5, 5], isRuler: true })); ovlText.innerText = "РАССТОЯНИЕ: " + distM + " м"; rulerPoints = []; } }
-            }, 1000);
-        }
-        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
-        if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot || opt.target.isFrozen) isDraggingCanvas = true;
-        canvas.getObjects().forEach(o => { if(!o.isFrozen) { o._lastLeft = o.left; o._lastTop = o.top; } });
-    });
-
-    canvas.on('mouse:move', function(opt) {
-        const touches = opt.e.touches, cX = touches ? touches[0].clientX : opt.e.clientX, cY = touches ? touches[0].clientY : opt.e.clientY, ptr = canvas.getPointer(opt.e);
-        if (touches && touches.length === 2) { canvas.selection = false; isDraggingCanvas = false; rotationTarget = null; let dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); if (lastDistance > 0) canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), canvas.getZoom() * (dist / lastDistance)); lastDistance = dist; return; }
-        if (isCalibrating || isRulerMode) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
-        if (rotationTarget) {
-            const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen), truck = parts.find(p => p.vehicleType === 'truck'), m0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
-            if (truck && m0) {
-                const radM = (m0.angle * Math.PI) / 180, kpX = m0.left + (m0.f_val * sc) * Math.cos(radM), kpY = m0.top + (m0.f_val * sc) * Math.sin(radM);
-                if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                else parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI);
-                syncAll();
-            }
-        } else if (isDraggingCanvas) { let vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll(); }
-        lastPosX = cX; lastPosY = cY;
-    });
-
-    canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.isFrozen) return;
-        if (moved.type === 'part') {
-            const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
-            canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
-            canvas.getObjects().forEach(o => { if(!o.isFrozen) { o._lastLeft = o.left; o._lastTop = o.top; } }); syncAll();
-        }
-    });
-
-    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; canvas.selection = true; syncAll(); });
 
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const sc = PX_METER / 40; let cX = (canvas.width/2 - canvas.viewportTransform[4])/canvas.getZoom(), cY = (canvas.height/2 - canvas.viewportTransform[5])/canvas.getZoom();
@@ -348,16 +295,15 @@
         canvas.add(obj); syncAll();
     }
 
+    function toggleCalibration() { isCalibrating = !isCalibrating; isRulerMode = false; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-btn').classList.toggle('btn-active-red', isCalibrating); document.getElementById('ruler-btn').classList.remove('btn-active-red'); ovlText.innerText = "УДЕРЖИВАЙТЕ 1 СЕК"; ovlControls.style.display = 'none'; overlayMsg.style.display = isCalibrating ? 'block' : 'none'; }
+    function toggleRuler() { isRulerMode = !isRulerMode; isCalibrating = false; rulerPoints = []; canvas.getObjects().filter(o => o.isRuler).forEach(o => canvas.remove(o)); document.getElementById('ruler-btn').classList.toggle('btn-active-red', isRulerMode); document.getElementById('cal-btn').classList.remove('btn-active-red'); ovlText.innerText = "ЛИНЕЙКА"; ovlControls.style.display = 'none'; overlayMsg.style.display = isRulerMode ? 'block' : 'none'; syncAll(); }
+
     function deleteSelected() { 
         canvas.getActiveObjects().forEach(obj => { if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o)); else if (obj.type === 'grid5x5') { canvas.remove(obj); overlayMsg.style.display = 'none'; currentGrid = null; } else canvas.remove(obj); }); 
         canvas.discardActiveObject(); syncAll(); 
     }
-    function freezeModel() {
-        const active = canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen); if(active.length === 0) return;
-        const groupId = "group_" + Date.now(); active.forEach(obj => { obj.clone(cl => { cl.set({ selectable: true, hasControls: false, lockMovementX: true, lockMovementY: true, isFrozen: true, freezeGroup: groupId, opacity: obj.type === 'cargo' ? CARGO_OPACITY : GLOBAL_OPACITY }); canvas.add(cl); }); });
-        setTimeout(syncAll, 50);
-    }
     function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; currentGrid = null; activeCargo = null; cargoBox.style.display = 'none'; syncAll(); } }
+
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
@@ -366,6 +312,44 @@
             canvas.setZoom(Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height)); canvas.requestRenderAll();
         }); reader.readAsDataURL(file);
     }
+
+    canvas.on('mouse:down', function(opt) {
+        const touches = opt.e.touches;
+        if (touches && touches.length === 2) { canvas.selection = false; isDraggingCanvas = false; rotationTarget = null; lastDistance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); return; }
+        const cX = touches ? touches[0].clientX : opt.e.clientX, cY = touches ? touches[0].clientY : opt.e.clientY, ptr = canvas.getPointer(opt.e);
+        startPosX = lastPosX = cX; startPosY = lastPosY = cY; canvas.selection = true;
+        if (isCalibrating || isRulerMode) {
+            magEl.style.display = 'block';
+            magCtx.clearRect(0,0,180,180); magCtx.save(); magCtx.translate(90,90); magCtx.scale(2.5,2.5); magCtx.translate(-ptr.x,-ptr.y); canvas.getObjects().forEach(obj => { if(['map','part','cargo','grid5x5'].includes(obj.type)||obj.isCalDot||obj.isRuler) obj.render(magCtx); }); magCtx.restore();
+            calTimer = setTimeout(() => {
+                if(isCalibrating) { calPoints.push(ptr); canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', isCalDot: true })); if (calPoints.length === 2) { let m = prompt("Метры:", "10"); if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m); toggleCalibration(); syncAll(); } }
+                else if(isRulerMode) { rulerPoints.push(ptr); canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 6, fill: 'white', stroke: '#000', strokeWidth: 1, originX: 'center', originY: 'center', isRuler: true })); if (rulerPoints.length === 2) { let distM = (Math.hypot(rulerPoints[0].x - rulerPoints[1].x, rulerPoints[0].y - rulerPoints[1].y) / PX_METER).toFixed(2); canvas.add(new fabric.Line([rulerPoints[0].x, rulerPoints[0].y, rulerPoints[1].x, rulerPoints[1].y], { stroke: 'white', strokeWidth: 2, strokeDashArray: [5, 5], isRuler: true })); ovlText.innerText = "РАССТОЯНИЕ: " + distM + " м"; rulerPoints = []; } }
+            }, 1000);
+        }
+        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
+        if (!opt.target || opt.target.type === 'map' || opt.target.isFrozen) isDraggingCanvas = true;
+    });
+
+    canvas.on('mouse:move', function(opt) {
+        const touches = opt.e.touches, cX = touches ? touches[0].clientX : opt.e.clientX, cY = touches ? touches[0].clientY : opt.e.clientY, ptr = canvas.getPointer(opt.e);
+        if (touches && touches.length === 2) { let dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); if (lastDistance > 0) canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), canvas.getZoom() * (dist / lastDistance)); lastDistance = dist; return; }
+        if (isCalibrating || isRulerMode) { 
+            magCtx.clearRect(0,0,180,180); magCtx.save(); magCtx.translate(90,90); magCtx.scale(2.5,2.5); magCtx.translate(-ptr.x,-ptr.y); canvas.getObjects().forEach(obj => { if(['map','part','cargo','grid5x5'].includes(obj.type)||obj.isCalDot||obj.isRuler) obj.render(magCtx); }); magCtx.restore();
+            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } 
+        }
+        if (rotationTarget) {
+            const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen), truck = parts.find(p => p.vehicleType === 'truck'), m0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
+            if (truck && m0) {
+                const radM = (m0.angle * Math.PI) / 180, kpX = m0.left + (m0.f_val * sc) * Math.cos(radM), kpY = m0.top + (m0.f_val * sc) * Math.sin(radM);
+                if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
+                else parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI);
+                syncAll();
+            }
+        } else if (isDraggingCanvas) { let vpt = canvas.viewportTransform; vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY; canvas.requestRenderAll(); }
+        lastPosX = cX; lastPosY = cY;
+    });
+
+    canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 </script>
 </body>
 </html>
