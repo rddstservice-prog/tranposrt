@@ -266,20 +266,23 @@
         let obj;
         if(isMulti) {
             const bl = l*40, bw = (w*40)/2;
-            const beamTop = [
-                new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-bw+4, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2}),
-                new fabric.Rect({left:24+bl, top:-bw+4, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2})
-            ];
-            const beamBottom = [
-                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:bw-14, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2}),
-                new fabric.Rect({left:24+bl, top:bw-14, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2})
-            ];
+            const adaptW = 24; // Ширина адаптера
+            
+            // Динамические цилиндры: всегда соединяют балку (24) и адаптеры (0 и bl+24)
+            const cylTopFront = new fabric.Rect({left:0, top:-bw+4, width: adaptW, height:10, fill:'#777', stroke:'black', strokeWidth:1});
+            const cylTopBack = new fabric.Rect({left:adaptW+bl, top:-bw+4, width: adaptW, height:10, fill:'#777', stroke:'black', strokeWidth:1});
+            const cylBotFront = new fabric.Rect({left:0, top:bw-14, width: adaptW, height:10, fill:'#777', stroke:'black', strokeWidth:1});
+            const cylBotBack = new fabric.Rect({left:adaptW+bl, top:bw-14, width: adaptW, height:10, fill:'#777', stroke:'black', strokeWidth:1});
+
             obj = new fabric.Group([
-                ...beamTop, ...beamBottom,
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9})
+                // Продольные балки
+                new fabric.Rect({left:adaptW, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:adaptW, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                // Соединительные элементы
+                cylTopFront, cylTopBack, cylBotFront, cylBotBack,
+                // Поперечные адаптеры
+                new fabric.Rect({left:0, top:-60, width:adaptW, height:120, fill:'#444', stroke:'black', strokeWidth:2}),
+                new fabric.Rect({left:bl+adaptW, top:-60, width:adaptW, height:120, fill:'#444', stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
