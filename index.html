@@ -8,15 +8,64 @@
     <style>
         :root { --bg: #000; --card-bg: #1a1a1a; --accent: #2196F3; --text: #fff; --border: #333; }
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; }
-        #hub-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; padding: 20px; box-sizing: border-box; }
         
-        .hub-title { font-size: 18px; font-weight: bold; color: var(--accent); margin-bottom: 30px; text-transform: uppercase; letter-spacing: 2px; }
+        #hub-screen { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            padding: 20px; 
+            box-sizing: border-box; 
+        }
         
-        .menu-grid { width: 100%; max-width: 350px; display: flex; flex-direction: column; gap: 12px; }
-        .hub-card { background: var(--card-bg); border: 2px solid var(--border); padding: 20px; border-radius: 16px; cursor: pointer; transition: 0.2s; }
+        .hub-title { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: var(--accent); 
+            margin-bottom: 30px; 
+            text-transform: uppercase; 
+            letter-spacing: 2px; 
+            text-align: center;
+        }
+        
+        .menu-grid { 
+            width: 100%; 
+            max-width: 350px; 
+            display: flex; 
+            flex-direction: column; 
+            gap: 12px; 
+        }
+
+        /* Обновленные стили карточек */
+        .hub-card { 
+            background: var(--card-bg); 
+            border: 2px solid var(--border); 
+            padding: 20px; 
+            border-radius: 16px; 
+            cursor: pointer; 
+            transition: 0.2s; 
+            
+            /* Центрирование контента внутри */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
         .hub-card:active { transform: scale(0.96); border-color: var(--accent); }
-        .hub-card h3 { margin: 0 0 4px 0; font-size: 16px; }
-        .hub-card p { margin: 0; font-size: 12px; color: #888; }
+        
+        .hub-card h3 { 
+            margin: 0 0 6px 0; 
+            font-size: 18px; /* Немного увеличил для читаемости */
+        }
+        
+        .hub-card p { 
+            margin: 0; 
+            font-size: 13px; 
+            color: #888; 
+        }
         
         #app-viewport { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; border: none; z-index: 10; background: #000; }
         #exit-btn { display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); z-index: 100; background: rgba(0,0,0,0.8); color: white; border: 1px solid var(--border); padding: 12px 25px; border-radius: 30px; font-size: 12px; font-weight: bold; backdrop-filter: blur(10px); }
@@ -56,7 +105,9 @@
         const tg = window.Telegram.WebApp; 
         if(tg) { tg.expand(); tg.ready(); }
 
-        const viewport = document.getElementById('app-viewport'), hub = document.getElementById('hub-screen'), exitBtn = document.getElementById('exit-btn');
+        const viewport = document.getElementById('app-viewport'), 
+              hub = document.getElementById('hub-screen'), 
+              exitBtn = document.getElementById('exit-btn');
         
         function launchApp(url) {
             if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
