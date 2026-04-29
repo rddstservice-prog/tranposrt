@@ -217,6 +217,8 @@
         if (truck && modules.length > 0) {
             const mod0 = modules[0], radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM), radT = (truck.angle * Math.PI) / 180;
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
+            
+            // Расставляем слои активной модели
             truck.moveTo(map ? 1 : 0);
             modules.forEach((mod, idx) => {
                 if (idx > 0) {
@@ -236,7 +238,7 @@
                     const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM);
                     const offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
                     cargo.set({ left: centerX + offX, top: centerY + offY, angle: firstMod.angle, scaleX: sc, scaleY: sc });
-                    cargo.setCoords(); cargo.bringToFront();
+                    cargo.setCoords(); cargo.bringToFront(); // Груз всегда поверх
                 });
             }
 
@@ -257,26 +259,51 @@
         canvas.add(h); h.bringToFront();
     }
 
-    // ЛОГИКА ЗАМОРОЗКИ
     function freezeModel() {
-        const activeObjs = canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen);
-        if(activeObjs.length === 0) return;
+        const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen);
+        const cargos = canvas.getObjects().filter(o => o.type === 'cargo' && !o.isFrozen);
+        if(parts.length === 0) return;
 
-        activeObjs.forEach(obj => {
+        // Порядок клонирования: Тягач (низ), Модули (середина), Груз (верх)
+        const truck = parts.find(p => p.vehicleType === 'truck');
+        const modules = parts.filter(p => p.vehicleType === 'mod');
+
+        const toFreeze = [];
+        if(truck) toFreeze.push(truck);
+        modules.forEach(m => toFreeze.push(m));
+        cargos.forEach(c => toFreeze.push(c));
+
+        toFreeze.forEach(obj => {
             obj.clone(cl => {
                 cl.set({ 
-                    selectable: false, 
-                    evented: false, 
+                    selectable: true, // Разрешаем выделять для удаления
+                    hasControls: false, // Запрещаем менять размер/вращать
+                    lockMovementX: true, // Запрещаем двигать
+                    lockMovementY: true,
                     isFrozen: true,
                     opacity: obj.type === 'cargo' ? CARGO_OPACITY : GLOBAL_OPACITY 
                 });
                 canvas.add(cl);
-                cl.sendToBack(); // Отправляем за активную модель, но выше карты
-                const map = canvas.getObjects().find(o => o.type === 'map');
-                if(map) cl.moveTo(canvas.getObjects().indexOf(map) + 1);
+                cl.bringToFront(); // Временно
             });
         });
-        canvas.requestRenderAll();
+
+        // После клонирования пересортируем Z-index всех объектов
+        setTimeout(() => {
+            const map = canvas.getObjects().find(o => o.type === 'map');
+            const frozen = canvas.getObjects().filter(o => o.isFrozen);
+            const active = canvas.getObjects().filter(o => !o.isFrozen && o.type !== 'map' && o.type !== 'handle');
+            
+            if(map) map.sendToBack();
+            // Замороженные внизу, но над картой
+            frozen.forEach(f => {
+                if(f.vehicleType === 'truck') f.sendToBack();
+                if(f.type === 'cargo') f.bringToFront();
+            });
+            // Активные всегда сверху
+            active.forEach(a => a.bringToFront());
+            canvas.requestRenderAll();
+        }, 50);
     }
 
     function addCargo() {
@@ -341,6 +368,7 @@
             if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
             return; 
         }
+        // Разрешаем тащить карту, если нажали на замороженный объект
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot || opt.target.isFrozen) isDraggingCanvas = true;
         updateLastPos();
     });
@@ -388,6 +416,7 @@
 
     canvas.on('object:moving', (e) => {
         const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo') return;
+        if (moved.isFrozen) return; // Не двигаем замороженное
         const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
         canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
         updateLastPos(); syncAll();
@@ -451,15 +480,14 @@
 
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
     
-    // Удаляет только выделенные АКТИВНЫЕ объекты
+    // Теперь удаляет всё выделенное, включая замороженные объекты
     function deleteSelected() { 
         canvas.getActiveObjects().forEach(obj => { 
-            if (!obj.isFrozen && (obj.type === 'part' || obj.type === 'cargo')) canvas.remove(obj); 
+            if (obj.type === 'part' || obj.type === 'cargo') canvas.remove(obj); 
         }); 
         canvas.discardActiveObject(); syncAll(); 
     }
 
-    // Полная очистка всего, кроме карты
     function clearAllButMap() { 
         if(confirm("Удалить всё (включая замороженные модели)?")) { 
             canvas.getObjects().forEach(obj => { 
