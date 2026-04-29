@@ -143,7 +143,6 @@
         if(map) map.sendToBack();
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
         
-        // Принудительно ставим масштаб ВСЕМ частям при каждой синхронизации
         parts.forEach(p => p.set({ scaleX: sc, scaleY: sc }));
 
         if (truck) {
@@ -292,15 +291,44 @@
                 new fabric.Text(n, { fontSize: 10, originX: 'center', left: (cabL + instL + tL) / 2, fill: 'black', fontWeight: 'bold' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
-            obj = new fabric.Group([
+            let modElems = [
                 new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, fill: (c==='white'?'black':'white'), fontWeight:'bold' })
-            ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
+                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, top: 0, originY: 'center', fill: (c==='white'?'black':'white'), fontWeight:'bold' })
+            ];
+            
+            // ДОБАВЛЕНИЕ ПОВОРОТНЫХ КРУГОВ ДЛЯ THP
+            if (n.startsWith('THP')) {
+                let axleCount = parseInt(n.split(' ')[1]);
+                for (let i = 0; i < axleCount; i++) {
+                    let posX = (0.75 + i * 1.5) * 40;
+                    [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
+                        // Контур круга
+                        modElems.push(new fabric.Circle({
+                            left: posX, top: posY, radius: 18, originX: 'center', originY: 'center',
+                            fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]
+                        }));
+                        // Перекрестие (вертикаль)
+                        modElems.push(new fabric.Rect({
+                            left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
+                        }));
+                        // Перекрестие (горизонталь)
+                        modElems.push(new fabric.Rect({
+                            left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
+                        }));
+                        // Центральная точка
+                        modElems.push(new fabric.Circle({
+                            left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'
+                        }));
+                    });
+                }
+            }
+
+            obj = new fabric.Group(modElems, { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         }
         
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
         canvas.add(obj); 
-        syncAll(); // Сразу синхронизируем всё при добавлении
+        syncAll();
     }
 
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; canvas.requestRenderAll(); }
