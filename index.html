@@ -176,14 +176,13 @@
                 });
             });
 
-            // Радиаторы (сделаны чуть шире)
             const radW = instL * 0.95, radH = 9, radiators = [];
             [-(tW/2)+1, (tW/2-radH-1)].forEach(posY => {
                 radiators.push(new fabric.Rect({ left: cabL+(instL-radW)/2, top: posY, width: radW, height: radH, fill: '#666', stroke: 'black', strokeWidth: 0.5 }));
                 for(let s=3; s<radW; s+=5) radiators.push(new fabric.Rect({ left: cabL+(instL-radW)/2+s, top: posY, width: 1, height: radH, fill: '#333' }));
             });
 
-            // Крыльчатка строго в рамке
+            // Исправленный размер крыльчатки: fanR уменьшен, чтобы быть внутри boxS
             const boxS = instL * 0.85, fanCX = cabL + instL/2, fanR = (boxS*0.8)/2, blades = [];
             for(let i=0; i<8; i++) blades.push(new fabric.Ellipse({ left: fanCX, top: 0, rx: fanR*0.9, ry: 5, fill: '#333', originX: 'left', originY: 'center', angle: i*45 }));
 
