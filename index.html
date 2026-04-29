@@ -266,11 +266,28 @@
         let obj;
         if(isMulti) {
             const bl = l*40;
+            const adaptW = 24;
+            const cylH = 10;
+            const bw = (w*40)/2;
+
+            // Цилиндры, которые соединяют балки с адаптерами (перекрывают пустоту)
+            const cylinders = [
+                // Передние цилиндры
+                new fabric.Rect({left: 0, top: -bw + 4, width: adaptW, height: cylH, fill: '#777', stroke: 'black', strokeWidth: 1}),
+                new fabric.Rect({left: 0, top: bw - 14, width: adaptW, height: cylH, fill: '#777', stroke: 'black', strokeWidth: 1}),
+                // Задние цилиндры
+                new fabric.Rect({left: bl + adaptW, top: -bw + 4, width: adaptW, height: cylH, fill: '#777', stroke: 'black', strokeWidth: 1}),
+                new fabric.Rect({left: bl + adaptW, top: bw - 14, width: adaptW, height: cylH, fill: '#777', stroke: 'black', strokeWidth: 1})
+            ];
+
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2})
+                // Основные продольные балки
+                new fabric.Rect({left: adaptW, top: -bw, width: bl, height: 18, fill: '#A2231D', stroke: 'black', strokeWidth: 2}),
+                new fabric.Rect({left: adaptW, top: bw - 18, width: bl, height: 18, fill: '#A2231D', stroke: 'black', strokeWidth: 2}),
+                ...cylinders,
+                // Поперечные адаптеры
+                new fabric.Rect({left: 0, top: -60, width: adaptW, height: 120, fill: '#444', stroke: 'black', strokeWidth: 2}),
+                new fabric.Rect({left: bl + adaptW, top: -60, width: adaptW, height: 120, fill: '#444', stroke: 'black', strokeWidth: 2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
@@ -333,9 +350,8 @@
                     { x: fsk, y: 0 }, { x: gL, y: 0 }, { x: gL, y: gW }, { x: fsk, y: gW }, { x: 0, y: gW - fsk }, { x: 0, y: fsk }           
                 ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -gW/2 }));
             } else if (n.startsWith('THP')) {
-                const fsk = 0.32 * 40; // Скос 0,32м
+                const fsk = 0.32 * 40; 
                 const mL = l * 40, mW = w * 40;
-                // Полигон со скошенными углами со всех сторон
                 modElems.push(new fabric.Polygon([
                     { x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk },
                     { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }
