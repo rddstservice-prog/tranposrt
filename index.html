@@ -261,35 +261,36 @@
         canvas.add(h); h.bringToFront();
     }
 
-    // --- ФУНКЦИЯ РАЗМЕРНОЙ СЕТКИ ---
     function addGrid5x5() {
         let sizeInput = prompt("Введите размер сетки в метрах (например 10, 25, 50):", "25");
         if (!sizeInput) return;
         
         let s = parseInt(sizeInput);
-        // Округление до ближайшего шага в 5 метров
         s = Math.round(s / 5) * 5;
         if (s < 5) s = 5;
 
-        const stepPx = 5 * PX_METER; // Шаг всегда 5 метров
         const totalPx = s * PX_METER;
-        const lines = [];
+        const gridItems = [];
 
         for (let i = 0; i <= s; i += 5) {
             let pos = i * PX_METER;
             // Вертикальные
-            lines.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+            gridItems.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+            // Подпись X (ярко оранжевый)
+            gridItems.push(new fabric.Text(i + "м", { left: pos, top: -12, fontSize: 12, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
+            
             // Горизонтальные
-            lines.push(new fabric.Line([0, pos, totalPx, pos], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+            gridItems.push(new fabric.Line([0, pos, totalPx, pos], { stroke: 'rgba(255,255,255,0.4)', strokeWidth: 1 }));
+            // Подпись Y (ярко оранжевый)
+            gridItems.push(new fabric.Text(i + "м", { left: -5, top: pos, fontSize: 12, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
 
-        const gridGroup = new fabric.Group(lines, {
+        const gridGroup = new fabric.Group(gridItems, {
             left: canvas.width / 2, top: canvas.height / 2,
             originX: 'center', originY: 'center',
             type: 'grid5x5',
             selectable: true,
-            hasControls: false,
-            transparentCorners: false
+            hasControls: false
         });
 
         canvas.add(gridGroup);
