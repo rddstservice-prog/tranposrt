@@ -285,46 +285,45 @@
             const tL = l * 40, tW = w * 40;
             const wheelLen = 1.12 * 40, axlesX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
             const cabL = tL * 0.3, instL = axlesX[1] - cabL - wheelLen/2;
-            const colorSecondary = 'white'; // ИЗМЕНЕНО НА WHITE
-            const fanCX = cabL + instL / 2; 
-            const fanR = (instL * 0.75) / 2; 
-            const wheelColor = '#222';
-            let wheels = [];
-            const rearWidth = 0.65 * 40; 
-            const frontWidth = rearWidth / 2; 
+            const colorSecondary = 'white'; 
+            
+            // ВЕНТИЛЯТОР И КОРПУС
+            const fanSize = instL * 0.8;
+            const fanCX = cabL + instL / 2;
+            const fanR = fanSize / 2;
+            
+            const fanGroup = [
+                // КОРПУС (Кожух)
+                new fabric.Rect({ left: cabL + (instL - fanSize)/2, top: -fanSize/2, width: fanSize, height: fanSize, fill: '#999', stroke: '#444', strokeWidth: 1.5 }),
+                // ОКРУЖНОСТЬ КОНТУРА
+                new fabric.Circle({ radius: fanR * 0.9, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#AAA', stroke: '#333', strokeWidth: 2 }),
+                // КРЫЛЬЧАТКА (ЛОПАСТИ)
+                new fabric.Rect({ width: 2, height: fanR * 1.6, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 0.5 }),
+                new fabric.Rect({ width: fanR * 1.6, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 0.5 }),
+                // ЦЕНТРАЛЬНАЯ ОСЬ
+                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222', stroke: 'black', strokeWidth: 1 })
+            ];
 
+            let wheels = [];
+            const rearWidth = 0.65 * 40, frontWidth = rearWidth / 2;
             axlesX.forEach((axX, idx) => {
-                if (idx < 2) { 
-                    [-(tW/2), (tW/2 - frontWidth)].forEach(posY => {
-                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: frontWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
-                    });
-                } else { 
-                    [-(tW/2), (tW/2 - rearWidth)].forEach(posY => {
-                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: rearWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
-                    });
-                }
+                const h = (idx < 2) ? frontWidth : rearWidth;
+                [-(tW/2), (tW/2 - h)].forEach(posY => {
+                    wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: h, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
+                });
             });
 
-            const radW = instL * 0.8; 
-            const radH = 6;
-            const radiators = [
+            const radW = instL * 0.8, radH = 6, radiators = [
                 new fabric.Rect({ left: cabL + (instL-radW)/2, top: -tW/2 + 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 }),
                 new fabric.Rect({ left: cabL + (instL-radW)/2, top: tW/2 - radH - 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 })
             ];
-            for(let step = 4; step < radW; step += 6) {
-                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: -tW/2 + 2, width: 1, height: radH, fill: '#444' }));
-                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: tW/2 - radH - 2, width: 1, height: radH, fill: '#444' }));
-            }
 
             const truckBody = [
                 new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }),
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 ...radiators,
-                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#444', strokeWidth: 2 }),
-                new fabric.Rect({ width: 2, height: fanR * 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' })
+                ...fanGroup
             ];
 
             obj = new fabric.Group([...truckBody, ...wheels], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
@@ -360,11 +359,11 @@
 
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader(); 
+        const reader = new FileReader(); 
         reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
             canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
-            img.set({ selectable: false, evented: false, type: 'map' }); 
-            canvas.add(img).sendToBack(); 
+            img.set({ selectable: false, evented: false, type: 'map' }); 
+            canvas.add(img).sendToBack(); 
             const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
             canvas.setZoom(scale);
             canvas.viewportTransform[4] = (canvas.width - img.width * scale) / 2;
