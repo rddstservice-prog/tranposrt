@@ -73,7 +73,7 @@
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
         
         <div class="section-label">ТЕХНИКА</div>
-        <button class="btn-white" onclick="addVehicle('Тягач', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ</button>
+        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
         <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
         
@@ -280,42 +280,57 @@
             const fanCX = cabL + instL / 2; 
             const fanR = (instL * 0.8) / 2; 
 
+            // Колеса согласно чертежу 8х4
+            const wheelLen = 1.12 * 40; // длина колеса (диаметр)
+            const axlesX = [1.3 * 40, (1.3 + 2.6) * 40, (1.3 + 2.6 + 1.443) * 40, (1.3 + 2.6 + 1.443 + 1.42) * 40];
+            const wheelColor = '#222';
+            let wheels = [];
+
+            axlesX.forEach((axX, idx) => {
+                if (idx < 2) { // Первые две оси - одинарные
+                    const wWidth = 0.22 * 40;
+                    const distFromCenter = 1.0 * 40; // по чертежу 1000мм до центра колеса
+                    [-(distFromCenter + wWidth/2), (distFromCenter - wWidth/2)].forEach(posY => {
+                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: wWidth, fill: wheelColor, rx: 4, ry: 4 }));
+                    });
+                } else { // Задние две оси - спаренные
+                    const wWidth = 0.65 * 40; // ширина блока двойных колес
+                    [-(tW/2), (tW/2 - wWidth)].forEach(posY => {
+                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: wWidth, fill: wheelColor, rx: 4, ry: 4 }));
+                    });
+                }
+            });
+
             obj = new fabric.Group([
                 new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
+                ...wheels,
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#444', strokeWidth: 2 }),
                 new fabric.Rect({ width: 2, height: fanR * 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
                 new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
-                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (cabL + instL + tL) / 2, fill: 'black', fontWeight: 'bold' })
+                new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' })
             ], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
             let modElems = [
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
-                new fabric.Text(n, { fontSize: 10, originX: 'center', left: (l*40)/2, top: 0, originY: 'center', fill: (c==='white'?'black':'white'), fontWeight:'bold' })
+                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })
             ];
             
-            // ДОБАВЛЕНИЕ ПОВОРОТНЫХ КРУГОВ ДЛЯ THP
             if (n.startsWith('THP')) {
                 let axleCount = parseInt(n.split(' ')[1]);
                 for (let i = 0; i < axleCount; i++) {
                     let posX = (0.75 + i * 1.5) * 40;
                     [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
-                        // Контур круга
                         modElems.push(new fabric.Circle({
                             left: posX, top: posY, radius: 18, originX: 'center', originY: 'center',
                             fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]
                         }));
-                        // Перекрестие (вертикаль)
                         modElems.push(new fabric.Rect({
                             left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
                         }));
-                        // Перекрестие (горизонталь)
                         modElems.push(new fabric.Rect({
                             left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
                         }));
-                        // Центральная точка
                         modElems.push(new fabric.Circle({
                             left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'
                         }));
