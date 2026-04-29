@@ -19,7 +19,7 @@
             color: white; 
             display: flex; 
             height: 100vh; 
-            height: 100dvh; /* Ключевое исправление для мобильных браузеров */
+            height: 100dvh; 
             width: 100vw; 
             overflow: hidden; 
             position: fixed; 
@@ -53,7 +53,7 @@
             padding: 10px 5px; 
             gap: 8px; 
             z-index: 50; 
-            overflow-y: auto; /* Скролл для кнопок */
+            overflow-y: auto; 
             padding-top: env(safe-area-inset-top); 
             height: 100%;
         }
@@ -64,7 +64,7 @@
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; height: 100%; }
         
         .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
-        #op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
+        #op-slider, #cargo-op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
 
         .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); }
         
@@ -110,9 +110,17 @@
         <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
         <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
 
-        <div class="section-label">ПРОЗРАЧНОСТЬ</div>
+        <div class="section-label">ГРУЗ</div>
+        <button class="btn-red" style="background:#e6a100; color:black;" onclick="addCargo()">📦 ПОСТАВИТЬ</button>
+
+        <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
         <div class="opacity-wrap">
             <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+        </div>
+        
+        <div class="section-label">ПРОЗР. ГРУЗА</div>
+        <div class="opacity-wrap">
+            <input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeCargoOpacity(this.value)">
         </div>
         
         <div style="flex-grow: 1;"></div>
@@ -159,11 +167,14 @@
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
     let GLOBAL_OPACITY = 0.6; 
+    let CARGO_OPACITY = 0.6;
+    let activeCargoIndex = -1; // Для перемещения конкретного груза
 
     function updateLastPos() { canvas.getObjects().forEach(o => { o._lastLeft = o.left; o._lastTop = o.top; }); }
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
+        const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
         const map = canvas.getObjects().find(o => o.type === 'map');
         const truck = parts.find(p => p.vehicleType === 'truck'), modules = parts.filter(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
         
@@ -183,10 +194,46 @@
                 }
                 mod.setCoords(); mod.bringToFront();
             });
+            
+            // Расчет позиции для грузов
+            if (cargos.length > 0) {
+                const firstMod = modules[0];
+                const lastMod = modules[modules.length - 1];
+                const frontX = firstMod.left;
+                const frontY = firstMod.top;
+                const rearX = lastMod.left + (lastMod.b_val * sc) * Math.cos(radM);
+                const rearY = lastMod.top + (lastMod.b_val * sc) * Math.sin(radM);
+                
+                const centerX = (frontX + rearX) / 2;
+                const centerY = (frontY + rearY) / 2;
+
+                cargos.forEach((cargo, idx) => {
+                    const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM);
+                    const offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
+                    
+                    cargo.set({
+                        left: centerX + offX,
+                        top: centerY + offY,
+                        angle: firstMod.angle,
+                        scaleX: sc,
+                        scaleY: sc
+                    });
+                    cargo.setCoords();
+                    cargo.bringToFront();
+                });
+            }
+
+            // Отрисовка манипуляторов техники
             createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck'); 
             const lastMod = modules[modules.length-1], radL = (lastMod.angle * Math.PI) / 180;
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+            
+            // Отрисовка манипуляторов груза (чтобы они были поверх всего)
+            cargos.forEach((cargo, idx) => {
+                createHandle(cargo.left, cargo.top, 'cargo', idx);
+            });
         }
+        
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
         canvas.renderAll();
     }
@@ -197,9 +244,60 @@
         canvas.requestRenderAll();
     }
 
-    function createHandle(x, y, t) { 
-        const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, hasControls: false, padding: 25 });
+    function changeCargoOpacity(val) {
+        CARGO_OPACITY = parseFloat(val);
+        canvas.getObjects().forEach(obj => { if (obj.type === 'cargo') obj.set('opacity', CARGO_OPACITY); });
+        canvas.requestRenderAll();
+    }
+
+    // Измененная функция createHandle для поддержки индексов груза
+    function createHandle(x, y, t, cargoIndex = -1) { 
+        const h = new fabric.Circle({ left: x, top: y, radius: 9, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: cargoIndex, hasControls: false, padding: 25 });
         canvas.add(h); h.bringToFront();
+    }
+
+    function addCargo() {
+        const modules = canvas.getObjects().filter(o => o.vehicleType === 'mod');
+        if (modules.length === 0) {
+            alert("Сначала добавьте модули трейлера на карту!");
+            return;
+        }
+
+        let lStr = prompt('Длина груза (м):', '10.0');
+        if (!lStr) return;
+        let wStr = prompt('Ширина груза (м):', '3.5');
+        if (!wStr) return;
+        let offsetStr = prompt('Смещение от центра трейлера (м)\n(Вперед: положительное, Назад: отрицательное):', '0');
+        if (offsetStr === null) return;
+
+        const l = parseFloat(lStr);
+        const w = parseFloat(wStr);
+        const offset = parseFloat(offsetStr) || 0;
+        const sc = PX_METER / 40;
+
+        const cargoRect = new fabric.Rect({
+            width: l * 40, height: w * 40,
+            fill: '#FFD700', stroke: 'black', strokeWidth: 2,
+            originX: 'center', originY: 'center'
+        });
+
+        // Центральный крестик
+        const crossSize = 15;
+        const cross1 = new fabric.Line([-crossSize, 0, crossSize, 0], { stroke: 'black', strokeWidth: 2, originX: 'center', originY: 'center' });
+        const cross2 = new fabric.Line([0, -crossSize, 0, crossSize], { stroke: 'black', strokeWidth: 2, originX: 'center', originY: 'center' });
+
+        const cargoObj = new fabric.Group([cargoRect, cross1, cross2], {
+            type: 'cargo', offsetMeters: offset,
+            originX: 'center', originY: 'center',
+            hasControls: false, opacity: CARGO_OPACITY,
+            scaleX: sc, scaleY: sc
+        });
+
+        canvas.add(cargoObj);
+        syncAll();
+        
+        // Маленькая подсказка пользователю
+        setTimeout(() => alert("Груз установлен!\nВы можете перемещать его по трейлеру, передвигая синий кружок в его центре."), 100);
     }
 
     function updateMagnifier(ptr) {
@@ -211,7 +309,7 @@
         magCtx.translate(size/2, size/2);
         magCtx.scale(zoom, zoom);
         magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.isCalDot) obj.render(magCtx); });
+        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cargo' || obj.isCalDot) obj.render(magCtx); });
         magCtx.restore();
     }
 
@@ -226,6 +324,7 @@
         if (evt.touches && evt.touches.length === 2) { lastDistance = Math.hypot(evt.touches[0].clientX - evt.touches[1].clientX, evt.touches[0].clientY - evt.touches[1].clientY); return; }
         const ptr = canvas.getPointer(evt);
         startPosX = lastPosX = cX; startPosY = lastPosY = cY;
+        
         if (isCalibrating) {
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
@@ -238,7 +337,15 @@
                 }
             }, 1000);
         }
-        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; return; }
+        
+        if (opt.target && opt.target.type === 'handle') { 
+            rotationTarget = opt.target.handleType;
+            if (rotationTarget === 'cargo') {
+                activeCargoIndex = opt.target.cargoIdx;
+            }
+            return; 
+        }
+        
         if (!opt.target || opt.target.type === 'map' || opt.target.isCalDot) isDraggingCanvas = true;
         updateLastPos();
     });
@@ -251,15 +358,43 @@
             if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
             lastDistance = dist; return;
         }
+        
         const ptr = canvas.getPointer(evt);
         if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
+        
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
-            const truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
-            if (truck && mod0) {
+            const mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
+            
+            if (rotationTarget === 'cargo') {
+                // Двигаем груз вдоль оси
+                const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
+                if (mod0 && cargos[activeCargoIndex]) {
+                    const modules = parts.filter(p => p.vehicleType === 'mod');
+                    const firstMod = modules[0];
+                    const lastMod = modules[modules.length - 1];
+                    const radM = (firstMod.angle * Math.PI) / 180;
+                    
+                    const frontX = firstMod.left; const frontY = firstMod.top;
+                    const rearX = lastMod.left + (lastMod.b_val * sc) * Math.cos(radM);
+                    const rearY = lastMod.top + (lastMod.b_val * sc) * Math.sin(radM);
+                    const centerX = (frontX + rearX) / 2; const centerY = (frontY + rearY) / 2;
+                    
+                    const axisX = Math.cos(radM);
+                    const axisY = Math.sin(radM);
+                    const mouseVecX = ptr.x - centerX;
+                    const mouseVecY = ptr.y - centerY;
+                    
+                    const dotProduct = mouseVecX * axisX + mouseVecY * axisY; // проекция в пикселях
+                    cargos[activeCargoIndex].offsetMeters = dotProduct / PX_METER;
+                    syncAll();
+                }
+            } else if (parts.find(p => p.vehicleType === 'truck') && mod0) {
+                // Крутим технику
+                const truck = parts.find(p => p.vehicleType === 'truck');
                 const radM = (mod0.angle * Math.PI) / 180, kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM), kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
                 if (rotationTarget === 'truck') truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                else parts.forEach(p => { if (p.vehicleType === 'mod') p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI; });
+                else parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI);
                 syncAll();
             }
         } else if (isDraggingCanvas) {
@@ -269,9 +404,11 @@
     });
 
     canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.type !== 'part') return;
+        const moved = e.target; 
+        if (moved.type !== 'part' && moved.type !== 'cargo') return;
         const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
-        canvas.getObjects().filter(o => o.type === 'part' && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
+        // Двигаем все объекты вместе с выбранным
+        canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
         updateLastPos(); syncAll();
     });
 
@@ -281,80 +418,20 @@
         const sc = PX_METER / 40, vpt = canvas.viewportTransform;
         let cX = (canvas.width/2 - vpt[4])/canvas.getZoom(), cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
         const parts = canvas.getObjects().filter(o => o.type === 'part');
+        let lastAngle = 0; 
+
         if (parts.length > 0) {
-            const last = parts[parts.length-1], rad = (last.angle * Math.PI) / 180;
+            const last = parts[parts.length-1];
+            lastAngle = last.angle;
+            const rad = (lastAngle * Math.PI) / 180;
             cX = last.left + (last.b_val * sc) * Math.cos(rad) - (f||0)*sc*Math.cos(rad);
             cY = last.top + (last.b_val * sc) * Math.sin(rad) - (f||0)*sc*Math.sin(rad);
         }
+        
         let obj;
         if(isMulti) {
             const bl = l*40, bw = (w*40)/2;
             const beamTop = [
                 new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
                 new fabric.Rect({left:0, top:-bw+4, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2}),
-                new fabric.Rect({left:24+bl, top:-bw+4, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2})
-            ];
-            const beamBottom = [
-                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:bw-14, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2}),
-                new fabric.Rect({left:24+bl, top:bw-14, width:24, height:10, fill:'#777', stroke:'black', rx:2, ry:2})
-            ];
-            obj = new fabric.Group([
-                ...beamTop, ...beamBottom,
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9})
-            ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
-        } else if (t === 'truck') {
-            const tL = l * 40, tW = w * 40, wL = 1.12 * 40, axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
-            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
-            const fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
-            const fanElements = [
-                new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }),
-                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }),
-                ...Array.from({length: 8}).map((_, i) => new fabric.Rect({ width: 2, height: fanR * 1.8, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i * 45 })),
-                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })
-            ];
-            let wheels = []; axX.forEach((x, idx) => { const h = (idx < 2) ? 13 : 26; [-(tW/2), (tW/2 - h)].forEach(posY => wheels.push(new fabric.Rect({ left: x - wL/2, top: posY, width: wL, height: h, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }))); });
-            const truckBody = [ new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }), new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }) ];
-            obj = new fabric.Group([...truckBody, ...fanElements, ...wheels], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
-        } else {
-            let modElems = []; const fsk = 0.32 * 40, mL = l * 40, mW = w * 40;
-            if (n === 'Гуснек') {
-                const f065 = 0.65 * 40;
-                modElems.push(new fabric.Polygon([{ x: f065, y: 0 }, { x: mL, y: 0 }, { x: mL, y: mW }, { x: f065, y: mW }, { x: 0, y: mW - f065 }, { x: 0, y: f065 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
-            } else if (n.startsWith('THP')) {
-                modElems.push(new fabric.Polygon([{ x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk }, { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
-                for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
-                    let posX = (0.75 + i * 1.5) * 40;
-                    [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
-                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}));
-                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
-                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
-                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'}));
-                    });
-                }
-            } else {
-                modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }));
-            }
-            obj = new fabric.Group(modElems, { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
-        }
-        if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); syncAll();
-    }
-
-    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
-    function deleteSelected() { canvas.getActiveObjects().forEach(obj => { if (obj.type === 'part') canvas.remove(obj); }); canvas.discardActiveObject(); syncAll(); }
-    function clearVehiclesOnly() { if(confirm("Удалить всю технику с карты?")) { canvas.getObjects().forEach(obj => { if (obj.type === 'part' || obj.type === 'handle') canvas.remove(obj); }); syncAll(); } }
-    
-    function loadMap(event) {
-        const file = event.target.files[0]; if (!file) return;
-        const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
-            canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
-            img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack();
-            const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
-            canvas.setZoom(scale); canvas.requestRenderAll();
-        }); reader.readAsDataURL(file);
-    }
-</script>
-</body>
-</html>
+                new fabric.Rect({left:24+bl, top:-bw+4, width:2
