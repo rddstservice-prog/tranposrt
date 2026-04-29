@@ -265,10 +265,29 @@
         
         let obj;
         if(isMulti) {
-            const bl = l*40;
+            const bl = l*40, bw = (w*40)/2;
+            const cylR = 8;
+            
+            // Продольные балки с цилиндрами на концах
+            const beamTop = [
+                new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                // Цилиндр спереди (сверху)
+                new fabric.Rect({left:24, top:-bw-cylR/2+9, width:cylR*1.5, height:cylR, fill:'#555', stroke:'black', rx:2, ry:2}),
+                // Цилиндр сзади (сверху)
+                new fabric.Rect({left:24+bl-cylR*1.5, top:-bw-cylR/2+9, width:cylR*1.5, height:cylR, fill:'#555', stroke:'black', rx:2, ry:2})
+            ];
+            
+            const beamBottom = [
+                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                // Цилиндр спереди (снизу)
+                new fabric.Rect({left:24, top:bw-18-cylR/2+9, width:cylR*1.5, height:cylR, fill:'#555', stroke:'black', rx:2, ry:2}),
+                // Цилиндр сзади (снизу)
+                new fabric.Rect({left:24+bl-cylR*1.5, top:bw-18-cylR/2+9, width:cylR*1.5, height:cylR, fill:'#555', stroke:'black', rx:2, ry:2})
+            ];
+
             obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-(w*40)/2, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:(w*40)/2-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
+                ...beamTop,
+                ...beamBottom,
                 new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2}),
                 new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2})
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
@@ -287,19 +306,13 @@
             const frontWidth = rearWidth / 2; 
 
             axlesX.forEach((axX, idx) => {
-                if (idx < 2) { 
-                    [-(tW/2), (tW/2 - frontWidth)].forEach(posY => {
-                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: frontWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
-                    });
-                } else { 
-                    [-(tW/2), (tW/2 - rearWidth)].forEach(posY => {
-                        wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: rearWidth, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
-                    });
-                }
+                const h = (idx < 2) ? frontWidth : rearWidth;
+                [-(tW/2), (tW/2 - h)].forEach(posY => {
+                    wheels.push(new fabric.Rect({ left: axX - wheelLen/2, top: posY, width: wheelLen, height: h, fill: wheelColor, rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }));
+                });
             });
 
-            const radW = instL * 0.8; 
-            const radH = 6;
+            const radW = instL * 0.8, radH = 6;
             const radiators = [
                 new fabric.Rect({ left: cabL + (instL-radW)/2, top: -tW/2 + 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 }),
                 new fabric.Rect({ left: cabL + (instL-radW)/2, top: tW/2 - radH - 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 })
@@ -319,57 +332,35 @@
                 new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
                 new fabric.Circle({ radius: fanR * 0.25, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' })
             ];
-
-            obj = new fabric.Group([...truckBody, ...wheels], { 
-                left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc 
-            });
+            obj = new fabric.Group([...truckBody, ...wheels], { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
             let modElems = [];
-            
             if (n === 'Гуснек') {
-                const fsk = 0.65 * 40; 
-                const gL = l * 40, gW = w * 40;
+                const fsk = 0.65 * 40, gL = l * 40, gW = w * 40;
                 modElems.push(new fabric.Polygon([
                     { x: fsk, y: 0 }, { x: gL, y: 0 }, { x: gL, y: gW }, { x: fsk, y: gW }, { x: 0, y: gW - fsk }, { x: 0, y: fsk }           
                 ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -gW/2 }));
             } else if (n.startsWith('THP')) {
-                const fsk = 0.32 * 40; // Скос 0,32м
-                const mL = l * 40, mW = w * 40;
-                // Полигон со скошенными углами со всех сторон
+                const fsk = 0.32 * 40, mL = l * 40, mW = w * 40;
                 modElems.push(new fabric.Polygon([
-                    { x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk },
-                    { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }
+                    { x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk }, { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }
                 ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
-
-                let axleCount = parseInt(n.split(' ')[1]);
-                for (let i = 0; i < axleCount; i++) {
+                for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
                     let posX = (0.75 + i * 1.5) * 40;
                     [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
-                        modElems.push(new fabric.Circle({
-                            left: posX, top: posY, radius: 18, originX: 'center', originY: 'center',
-                            fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]
-                        }));
-                        modElems.push(new fabric.Rect({
-                            left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
-                        }));
-                        modElems.push(new fabric.Rect({
-                            left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'
-                        }));
-                        modElems.push(new fabric.Circle({
-                            left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'
-                        }));
+                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}));
+                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
+                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
+                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'}));
                     });
                 }
             } else {
                 modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }));
             }
-
             obj = new fabric.Group(modElems, { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         }
-        
         if (parts.length > 0) obj.angle = parts[parts.length - 1].angle;
-        canvas.add(obj); 
-        syncAll();
+        canvas.add(obj); syncAll();
     }
 
     function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; canvas.requestRenderAll(); }
