@@ -64,7 +64,7 @@
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
         
         <div class="section-label">ТЕХНИКА</div>
-        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
+        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.6, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
         
         <div class="section-label">МОДУЛИ THP</div>
@@ -182,9 +182,8 @@
                 for(let s=3; s<radW; s+=5) radiators.push(new fabric.Rect({ left: cabL+(instL-radW)/2+s, top: posY, width: 1, height: radH, fill: '#333' }));
             });
 
-            // Исправленный размер крыльчатки: fanR уменьшен, чтобы быть внутри boxS
-            const boxS = instL * 0.85, fanCX = cabL + instL/2, fanR = (boxS*0.8)/2, blades = [];
-            for(let i=0; i<8; i++) blades.push(new fabric.Ellipse({ left: fanCX, top: 0, rx: fanR*0.9, ry: 5, fill: '#333', originX: 'left', originY: 'center', angle: i*45 }));
+            const boxS = instL * 0.85, fanCX = cabL + instL/2, fanR = (boxS*0.9)/2, blades = [];
+            for(let i=0; i<8; i++) blades.push(new fabric.Ellipse({ left: fanCX, top: 0, rx: fanR*0.85, ry: 5, fill: '#333', originX: 'left', originY: 'center', angle: i*45 }));
 
             const truckBody = [
                 new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }),
