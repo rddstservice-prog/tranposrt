@@ -453,7 +453,27 @@
             let modElems = []; const fsk = 0.32 * 40, mL = l * 40, mW = w * 40;
             if (n === 'Гуснек') {
                 const f065 = 0.65 * 40;
-                modElems.push(new fabric.Polygon([{ x: f065, y: 0 }, { x: mL, y: 0 }, { x: mL, y: mW }, { x: f065, y: mW }, { x: 0, y: mW - f065 }, { x: 0, y: f065 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
+                // КОНТУР РАМЫ ГУСНЕКА
+                modElems.push(new fabric.Polygon([
+                    { x: 0, y: 15 }, { x: 70, y: 0 }, { x: mL-40, y: 0 }, { x: mL, y: 20 },
+                    { x: mL, y: mW-20 }, { x: mL-40, y: mW }, { x: 70, y: mW }, { x: 0, y: mW-15 }
+                ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
+                
+                // ЦИЛИНДРЫ: 2.3м от начала КОНТУРА, разнос +-300мм (0.3м)
+                const cylX = 2.3 * 40; // 2.3м от начала детали
+                const cylYOff = 0.3 * 40;
+                const cylW = 0.4 * 40, cylH = 0.22 * 40;
+                
+                [cylYOff, -cylYOff].forEach(y => {
+                    modElems.push(new fabric.Rect({
+                        left: cylX, top: y, width: cylW, height: cylH,
+                        fill: '#444', stroke: 'black', strokeWidth: 1, originX: 'center', originY: 'center'
+                    }));
+                });
+                
+                // ХОРДА (Линия контура рамы)
+                modElems.push(new fabric.Line([70, -mW/2+10, 70, mW/2-10], { stroke: 'rgba(0,0,0,0.3)', strokeWidth: 1.5 }));
+
             } else if (n.startsWith('THP')) {
                 modElems.push(new fabric.Polygon([{ x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk }, { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
                 for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
