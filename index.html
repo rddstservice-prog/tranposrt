@@ -65,7 +65,6 @@
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .btn-freeze { background: #008080; border: 1px solid #00ffff; }
         .btn-orange { background: var(--orange); color: black; }
-        .btn-mini { width: 48%; padding: 8px 2px; font-size: 14px; }
 
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         
@@ -81,8 +80,19 @@
         .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
         #op-slider, #cargo-op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
 
-        .overlay-msg { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; border-radius: 25px; font-size: 11px; z-index: 100; display: none; pointer-events: none; border: 2px solid var(--blue); text-align: center; }
+        /* ОКНО ПОДСКАЗКИ С КНОПКАМИ */
+        .overlay-msg { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.9); color: white; padding: 12px 15px; 
+            border-radius: 15px; font-size: 11px; z-index: 1000; 
+            display: none; border: 2px solid var(--blue); text-align: center; 
+        }
         
+        .overlay-controls { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; pointer-events: auto; }
+        .overlay-row { display: flex; gap: 5px; justify-content: center; }
+        .btn-ovl { width: 45px; height: 35px; font-size: 18px; background: #444; color: white; border-radius: 8px; border: 1px solid #666; cursor: pointer; }
+        .btn-ovl-ok { width: 100px; height: 35px; font-size: 12px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; text-transform: uppercase; }
+
         #confirm-cargo {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: #4CAF50; color: white; padding: 12px 24px; border-radius: 25px;
@@ -90,9 +100,6 @@
             border: 2px solid #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
             text-transform: uppercase;
         }
-
-        #grid-controls { display: none; flex-direction: column; gap: 4px; background: #333; padding: 5px; border-radius: 6px; }
-        .grid-rot-row { display: flex; justify-content: space-between; gap: 4px; width: 100%; }
 
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
@@ -129,14 +136,6 @@
         <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
         <button class="btn-orange" onclick="gridMenu()">📏 РАЗМ. СЕТКА</button>
 
-        <div id="grid-controls">
-            <div class="grid-rot-row">
-                <button class="btn-tool btn-mini" onclick="rotateGridActive(-5)">⟲</button>
-                <button class="btn-tool btn-mini" onclick="rotateGridActive(5)">⟳</button>
-            </div>
-            <button class="btn-freeze" style="font-size: 8px; padding: 6px 0;" onclick="confirmGrid()">✅ ОК (ФИКС)</button>
-        </div>
-
         <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
         <div class="opacity-wrap">
             <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
@@ -172,7 +171,16 @@
     <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
 
     <div id="canvas-wrap">
-        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
+        <div id="cal-msg" class="overlay-msg">
+            <span id="ovl-text">УДЕРЖИВАЙТЕ 1 СЕК</span>
+            <div id="ovl-controls" class="overlay-controls" style="display:none;">
+                <div class="overlay-row">
+                    <button class="btn-ovl" onclick="rotateGridActive(-5)">⟲</button>
+                    <button class="btn-ovl" onclick="rotateGridActive(5)">⟳</button>
+                </div>
+                <button class="btn-ovl-ok" onclick="confirmGrid()">ГОТОВО</button>
+            </div>
+        </div>
         <div id="confirm-cargo" onclick="confirmCargo()">✅ ГОТОВО</div>
         
         <div id="magnifier"><canvas id="mag-canvas" width="180" height="180"></canvas><div id="mag-crosshair"></div></div>
@@ -201,6 +209,8 @@
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     const overlayMsg = document.getElementById('cal-msg');
+    const ovlText = document.getElementById('ovl-text');
+    const ovlControls = document.getElementById('ovl-controls');
 
     window.addEventListener('resize', () => {
         canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
@@ -239,13 +249,11 @@
                 mod.setCoords(); mod.bringToFront();
             });
             if (cargos.length > 0) {
-                const firstMod = modules[0];
-                const lastMod = modules[modules.length - 1];
+                const firstMod = modules[0], lastMod = modules[modules.length - 1];
                 const centerX = (firstMod.left + (lastMod.left + (lastMod.b_val * sc) * Math.cos(radM))) / 2;
                 const centerY = (firstMod.top + (lastMod.top + (lastMod.b_val * sc) * Math.sin(radM))) / 2;
                 cargos.forEach((cargo) => {
-                    const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM);
-                    const offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
+                    const offX = (cargo.offsetMeters * PX_METER) * Math.cos(radM), offY = (cargo.offsetMeters * PX_METER) * Math.sin(radM);
                     cargo.set({ left: centerX + offX, top: centerY + offY, angle: firstMod.angle, scaleX: sc, scaleY: sc });
                     cargo.setCoords(); cargo.bringToFront();
                 });
@@ -264,16 +272,13 @@
         canvas.add(h); h.bringToFront();
     }
 
-    // --- НОВАЯ ЛОГИКА МЕНЮ СЕТКИ ---
     function gridMenu() {
         let action = prompt("Выберите действие:\n1 - Добавить сетку\n2 - Удалить все сетки", "1");
-        if (action === "1") {
-            addGrid5x5();
-        } else if (action === "2") {
+        if (action === "1") addGrid5x5();
+        else if (action === "2") {
             canvas.getObjects().filter(o => o.type === 'grid5x5').forEach(g => canvas.remove(g));
-            document.getElementById('grid-controls').style.display = 'none';
-            currentGrid = null;
-            canvas.requestRenderAll();
+            overlayMsg.style.display = 'none'; ovlControls.style.display = 'none';
+            currentGrid = null; canvas.requestRenderAll();
         }
     }
 
@@ -283,7 +288,6 @@
         let s = Math.round(parseInt(sizeInput) / 5) * 5; if (s < 5) s = 5;
         const totalPx = s * PX_METER;
         const gridItems = [];
-
         for (let i = 0; i <= s; i += 5) {
             let pos = i * PX_METER;
             gridItems.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
@@ -291,23 +295,22 @@
             gridItems.push(new fabric.Text(i + "м", { left: pos, top: totalPx + 5, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originX: 'center', originY: 'top' }));
             gridItems.push(new fabric.Text(i + "м", { left: -8, top: totalPx - pos, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
-
         currentGrid = new fabric.Group(gridItems, {
-            left: canvas.width / 2, top: canvas.height / 2,
-            originX: 'center', originY: 'center',
-            type: 'grid5x5', selectable: true, hasControls: false
+            left: canvas.width / 2, top: canvas.height / 2, originX: 'center', originY: 'center',
+            type: 'grid5x5', selectable: true, hasControls: false, gridId: "grid_" + Date.now()
         });
-
         canvas.add(currentGrid);
-        document.getElementById('grid-controls').style.display = 'flex';
+        ovlText.innerText = "ПРОВЕРНИТЕ И ЗАФИКСИРУЙТЕ";
+        ovlControls.style.display = 'flex';
+        overlayMsg.style.display = 'block';
         syncAll();
     }
 
     function rotateGridActive(deg) { if(currentGrid) { currentGrid.angle += deg; canvas.requestRenderAll(); } }
-    function confirmGrid() { if(currentGrid) { currentGrid.set({ selectable: false, evented: false, isFrozen: true }); currentGrid = null; document.getElementById('grid-controls').style.display = 'none'; } }
+    function confirmGrid() { if(currentGrid) { currentGrid.set({ selectable: false, evented: false, isFrozen: true }); currentGrid = null; ovlControls.style.display = 'none'; overlayMsg.style.display = 'none'; } }
 
-    function toggleCalibration() { isCalibrating = !isCalibrating; isRulerMode = false; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); overlayMsg.innerText = "УДЕРЖИВАЙТЕ 1 СЕК"; overlayMsg.style.display = isCalibrating ? 'block' : 'none'; }
-    function toggleRuler() { isRulerMode = !isRulerMode; isCalibrating = false; rulerPoints = []; canvas.getObjects().filter(o => o.isRuler).forEach(o => canvas.remove(o)); overlayMsg.innerText = "ЛИНЕЙКА: УДЕРЖИВАЙТЕ ТОЧКИ"; overlayMsg.style.display = isRulerMode ? 'block' : 'none'; syncAll(); }
+    function toggleCalibration() { isCalibrating = !isCalibrating; isRulerMode = false; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); ovlText.innerText = "УДЕРЖИВАЙТЕ 1 СЕК"; ovlControls.style.display = 'none'; overlayMsg.style.display = isCalibrating ? 'block' : 'none'; }
+    function toggleRuler() { isRulerMode = !isRulerMode; isCalibrating = false; rulerPoints = []; canvas.getObjects().filter(o => o.isRuler).forEach(o => canvas.remove(o)); ovlText.innerText = "ЛИНЕЙКА: УДЕРЖИВАЙТЕ ТОЧКИ"; ovlControls.style.display = 'none'; overlayMsg.style.display = isRulerMode ? 'block' : 'none'; syncAll(); }
 
     function freezeModel() {
         const active = canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen);
@@ -344,7 +347,7 @@
     }
 
     canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; const touches = evt.touches;
+        const evt = opt.e, touches = evt.touches;
         if (touches && touches.length === 2) { canvas.selection = false; isDraggingCanvas = false; rotationTarget = null; lastDistance = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); return; }
         const cX = touches ? touches[0].clientX : evt.clientX, cY = touches ? touches[0].clientY : evt.clientY, ptr = canvas.getPointer(evt);
         startPosX = lastPosX = cX; startPosY = lastPosY = cY; canvas.selection = true;
@@ -356,7 +359,7 @@
                     if (calPoints.length === 2) { let m = prompt("Метры:", "10"); if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m); toggleCalibration(); syncAll(); }
                 } else if(isRulerMode) {
                     rulerPoints.push(ptr); canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 6, fill: 'white', stroke: '#000', strokeWidth: 1, originX: 'center', originY: 'center', selectable: false, evented: false, isRuler: true }));
-                    if (rulerPoints.length === 2) { let distM = (Math.hypot(rulerPoints[0].x - rulerPoints[1].x, rulerPoints[0].y - rulerPoints[1].y) / PX_METER).toFixed(2); canvas.add(new fabric.Line([rulerPoints[0].x, rulerPoints[0].y, rulerPoints[1].x, rulerPoints[1].y], { stroke: 'white', strokeWidth: 2, strokeDashArray: [5, 5], selectable: false, evented: false, isRuler: true })); overlayMsg.innerText = "РАССТОЯНИЕ: " + distM + " м"; rulerPoints = []; }
+                    if (rulerPoints.length === 2) { let distM = (Math.hypot(rulerPoints[0].x - rulerPoints[1].x, rulerPoints[0].y - rulerPoints[1].y) / PX_METER).toFixed(2); canvas.add(new fabric.Line([rulerPoints[0].x, rulerPoints[0].y, rulerPoints[1].x, rulerPoints[1].y], { stroke: 'white', strokeWidth: 2, strokeDashArray: [5, 5], selectable: false, evented: false, isRuler: true })); ovlText.innerText = "РАССТОЯНИЕ: " + distM + " м"; rulerPoints = []; }
                 }
             }, 1000);
         }
@@ -366,7 +369,7 @@
     });
 
     canvas.on('mouse:move', function(opt) {
-        const evt = opt.e; const touches = evt.touches;
+        const evt = opt.e, touches = evt.touches;
         if (touches && touches.length === 2) { canvas.selection = false; isDraggingCanvas = false; rotationTarget = null; let dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY); if (lastDistance > 0) canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), canvas.getZoom() * (dist / lastDistance)); lastDistance = dist; return; }
         const cX = touches ? touches[0].clientX : evt.clientX, cY = touches ? touches[0].clientY : evt.clientY, ptr = canvas.getPointer(evt);
         if (isCalibrating || isRulerMode) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
@@ -430,7 +433,7 @@
             if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o)); 
             else if (obj.type === 'grid5x5') {
                 canvas.remove(obj); 
-                document.getElementById('grid-controls').style.display = 'none'; 
+                overlayMsg.style.display = 'none'; ovlControls.style.display = 'none';
                 currentGrid = null;
             } 
             else canvas.remove(obj); 
@@ -438,8 +441,11 @@
         canvas.discardActiveObject(); syncAll(); 
     }
 
-    function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; document.getElementById('grid-controls').style.display = 'none'; currentGrid = null; syncAll(); } }
+    function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; ovlControls.style.display = 'none'; currentGrid = null; syncAll(); } }
     
+    function changeGlobalOpacity(val) { GLOBAL_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'part') obj.set('opacity', GLOBAL_OPACITY); }); canvas.requestRenderAll(); }
+    function changeCargoOpacity(val) { CARGO_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'cargo') obj.set('opacity', CARGO_OPACITY); }); canvas.requestRenderAll(); }
+
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
