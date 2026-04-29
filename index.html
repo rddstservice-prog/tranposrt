@@ -73,7 +73,7 @@
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
         
         <div class="section-label">ТЕХНИКА</div>
-        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.4, 'truck')">ТЯГАЧ 8х4</button>
+        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
         <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
         <button class="btn-red" style="background:#555" onclick="let w = prompt('Ширина (3.0 - 5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0 - 30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true) }">🏗 БАЛКИ</button>
         
@@ -327,9 +327,27 @@
                 left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc 
             });
         } else {
-            let modElems = [
-                new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })
-            ];
+            let modElems = [];
+            
+            // ТОЛЬКО ТУТ: ФАСКА ГУСНЕКА
+            if (n === 'Гуснек') {
+                const fsk = 0.65 * 40; 
+                const gL = l * 40, gW = w * 40;
+                
+                modElems.push(new fabric.Polygon([
+                    { x: fsk, y: 0 },          // Фаска верх
+                    { x: gL, y: 0 },           
+                    { x: gL, y: gW },          
+                    { x: fsk, y: gW },         
+                    { x: 0, y: gW - fsk },     // Фаска низ
+                    { x: 0, y: fsk }           
+                ], { 
+                    fill: c, stroke: 'black', strokeWidth: 2, 
+                    left: 0, top: -gW/2 
+                }));
+            } else {
+                modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }));
+            }
             
             if (n.startsWith('THP')) {
                 let axleCount = parseInt(n.split(' ')[1]);
