@@ -18,7 +18,6 @@
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .btn-orange { background: var(--orange); color: black; }
-        .btn-active-red { background: var(--red) !important; color: white !important; }
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; height: 100%; touch-action: none; }
         .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
@@ -29,7 +28,7 @@
         .btn-ok { width: 100px; height: 35px; font-size: 11px; font-weight: bold; background: #4CAF50; color: white; border-radius: 8px; border: none; text-transform: uppercase; }
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 2000; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
-        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; z-index: 2001; }
+        #mag-crosshair { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 30px; height: 30px; z-index: 2001; pointer-events: none; }
     </style>
 </head>
 <body>
@@ -76,11 +75,7 @@
             </div>
             <div class="ctrl-row">
                 <button class="btn-ovl" onmousedown="startAction('gridMove',-5,0)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',-5,0)" ontouchend="stopAction()">◀</button>
-                <button class="btn-ovl" onmousedown="startAction('gridRot',-2)" onmouseup="stopAction()" ontouchstart="startAction('gridRot',-2)" ontouchend="stopAction()">⟲</button>
-                <button class="btn-ovl" onmousedown="startAction('gridRot',2)" onmouseup="stopAction()" ontouchstart="startAction('gridRot',2)" ontouchend="stopAction()">⟳</button>
                 <button class="btn-ovl" onmousedown="startAction('gridMove',5,0)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',5,0)" ontouchend="stopAction()">▶</button>
-            </div>
-            <div class="ctrl-row">
                 <button class="btn-ovl" onmousedown="startAction('gridMove',0,5)" onmouseup="stopAction()" ontouchstart="startAction('gridMove',0,5)" ontouchend="stopAction()">▼</button>
             </div>
             <button class="btn-ok" onclick="confirmGrid()">ГОТОВО</button>
@@ -101,10 +96,14 @@
 <script>
     const tg = window.Telegram?.WebApp; if(tg) { tg.expand(); tg.ready(); }
     function startEditor(type) { if(type === 'truck-goose') { document.getElementById('hub-screen').style.display = 'none'; document.getElementById('main-app').style.display = 'flex'; setTimeout(() => { canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight }); canvas.requestRenderAll(); }, 50); } }
+    
     const wrap = document.getElementById('canvas-wrap'), canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d'), overlayMsg = document.getElementById('cal-msg'), ovlText = document.getElementById('ovl-text');
     const gridBox = document.getElementById('grid-controls'), cargoBox = document.getElementById('cargo-controls');
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0, isCalibrating = false, calPoints = [], calTimer = null, isRulerMode = false, rulerPoints = [], GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargo = null, currentGrid = null, actionInterval = null;
+
+    document.getElementById('op-slider').oninput = (e) => { GLOBAL_OPACITY = parseFloat(e.target.value); canvas.getObjects().filter(o => o.type === 'part').forEach(o => o.set('opacity', GLOBAL_OPACITY)); canvas.requestRenderAll(); };
+    document.getElementById('cargo-op-slider').oninput = (e) => { CARGO_OPACITY = parseFloat(e.target.value); canvas.getObjects().filter(o => o.type === 'cargo').forEach(o => o.set('opacity', CARGO_OPACITY)); canvas.requestRenderAll(); };
 
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen);
@@ -153,24 +152,18 @@
         const totalPx = s * PX_METER, items = [];
         for (let i = 0; i <= s; i += 5) {
             let p = i * PX_METER;
-            items.push(new fabric.Line([p, 0, p, totalPx], { stroke: '#FF8C00', strokeWidth: 4, opacity: 0.8 }));
-            items.push(new fabric.Line([0, p, totalPx, p], { stroke: '#FF8C00', strokeWidth: 4, opacity: 0.8 }));
-            items.push(new fabric.Text(i + "м", { left: p, top: totalPx + 10, fontSize: 28, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
-            items.push(new fabric.Text(i + "м", { left: -15, top: totalPx - p, fontSize: 28, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
+            // ИСПРАВЛЕНА ТОЛЩИНА ЛИНИЙ (4 -> 2)
+            items.push(new fabric.Line([p, 0, p, totalPx], { stroke: '#FF8C00', strokeWidth: 2, opacity: 0.8 }));
+            items.push(new fabric.Line([0, p, totalPx, p], { stroke: '#FF8C00', strokeWidth: 2, opacity: 0.8 }));
+            // ИСПРАВЛЕН РАЗМЕР НАДПИСЕЙ (40 -> 20)
+            items.push(new fabric.Text(i + "м", { left: p, top: totalPx + 5, fontSize: 20, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
+            items.push(new fabric.Text(i + "м", { left: -10, top: totalPx - p, fontSize: 20, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
         currentGrid = new fabric.Group(items, { left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', type: 'grid5x5', selectable: true, hasControls: false });
         canvas.add(currentGrid); gridBox.style.display = 'flex'; syncAll();
     }
 
-    function startAction(type, p1, p2) { 
-        stopAction(); 
-        actionInterval = setInterval(() => { 
-            if (type === 'gridMove' && currentGrid) { currentGrid.left += p1; currentGrid.top += p2; } 
-            if (type === 'gridRot' && currentGrid) { currentGrid.angle += p1; } 
-            if (type === 'cargoMove' && activeCargo) { activeCargo.offsetMeters += p1; syncAll(); } 
-            canvas.requestRenderAll(); 
-        }, 40); 
-    }
+    function startAction(type, p1, p2) { stopAction(); actionInterval = setInterval(() => { if (type === 'gridMove' && currentGrid) { currentGrid.left += p1; currentGrid.top += p2; } if (type === 'gridRot' && currentGrid) { currentGrid.angle += p1; } if (type === 'cargoMove' && activeCargo) { activeCargo.offsetMeters += p1; syncAll(); } canvas.requestRenderAll(); }, 40); }
     function stopAction() { if(actionInterval) clearInterval(actionInterval); }
     function confirmGrid() { if(currentGrid) { currentGrid.set({ isFrozen: true }); currentGrid = null; gridBox.style.display = 'none'; syncAll(); } }
 
