@@ -64,6 +64,7 @@
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
         .btn-freeze { background: #008080; border: 1px solid #00ffff; }
         .btn-orange { background: var(--orange); color: black; }
+        .btn-mini { width: 48%; padding: 8px 2px; font-size: 14px; }
 
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         
@@ -90,7 +91,7 @@
         }
 
         #grid-controls { display: none; flex-direction: column; gap: 4px; background: #333; padding: 5px; border-radius: 6px; }
-        .grid-rot-row { display: flex; gap: 4px; }
+        .grid-rot-row { display: flex; justify-content: space-between; gap: 4px; width: 100%; }
 
         #magnifier { position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; background: #111; display: none; z-index: 200; pointer-events: none; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
         #mag-canvas { position: absolute; top: 0; left: 0; }
@@ -122,14 +123,14 @@
         <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
         <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
-        <button class="btn-orange" onclick="addGrid5x5()">🏁 СЕТКА 5х5</button>
+        <button class="btn-orange" onclick="addGrid5x5()">📏 РАЗМ. СЕТКА</button>
         
         <div id="grid-controls">
             <div class="grid-rot-row">
-                <button class="btn-tool" onclick="rotateGridActive(-5)">⟲</button>
-                <button class="btn-tool" onclick="rotateGridActive(5)">⟳</button>
+                <button class="btn-tool btn-mini" onclick="rotateGridActive(-5)">⟲</button>
+                <button class="btn-tool btn-mini" onclick="rotateGridActive(5)">⟳</button>
             </div>
-            <button class="btn-freeze" style="font-size: 8px;" onclick="confirmGrid()">✅ ОК (ФИКС)</button>
+            <button class="btn-freeze" style="font-size: 8px; padding: 6px 0;" onclick="confirmGrid()">✅ ОК (ФИКС)</button>
         </div>
 
         <div class="section-label">МОДУЛЯЦИЯ</div>
@@ -257,12 +258,6 @@
         canvas.renderAll();
     }
 
-    function createHandle(x, y, t, cargoIndex = -1) { 
-        const h = new fabric.Circle({ left: x, top: y, radius: 10, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: cargoIndex, hasControls: false, padding: 20 });
-        canvas.add(h); h.bringToFront();
-    }
-
-    // --- СЕТКА 5х5 С ОБНОВЛЕННОЙ ЛОГИКОЙ ---
     function addGrid5x5() {
         let sizeInput = prompt("Размер сетки (округление до 5м):", "25");
         if (!sizeInput) return;
@@ -272,13 +267,9 @@
 
         for (let i = 0; i <= s; i += 5) {
             let pos = i * PX_METER;
-            // Линии
             gridItems.push(new fabric.Line([pos, 0, pos, totalPx], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
             gridItems.push(new fabric.Line([0, pos, totalPx, pos], { stroke: '#FF8C00', strokeWidth: 1.5, opacity: 0.7 }));
-            // Подписи по осям (снизу вверх и справа налево)
-            // Горизонтальная ось (справа налево):
             gridItems.push(new fabric.Text(i + "м", { left: totalPx - pos, top: totalPx + 5, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originX: 'center', originY: 'top' }));
-            // Вертикальная ось (снизу вверх):
             gridItems.push(new fabric.Text(i + "м", { left: -8, top: totalPx - pos, fontSize: 14, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
         }
 
@@ -415,9 +406,24 @@
         canvas.add(obj); syncAll();
     }
 
-    function deleteSelected() { canvas.getActiveObjects().forEach(obj => { if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o)); else if (obj.type === 'grid5x5') { canvas.remove(obj); document.getElementById('grid-controls').style.display = 'none'; } else canvas.remove(obj); }); canvas.discardActiveObject(); syncAll(); }
-    function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; document.getElementById('grid-controls').style.display = 'none'; syncAll(); } }
+    function deleteSelected() { 
+        canvas.getActiveObjects().forEach(obj => { 
+            if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o)); 
+            else if (obj.type === 'grid5x5') {
+                canvas.remove(obj); 
+                document.getElementById('grid-controls').style.display = 'none'; 
+                if(currentGrid === obj) currentGrid = null;
+            } 
+            else canvas.remove(obj); 
+        }); 
+        canvas.discardActiveObject(); syncAll(); 
+    }
+
+    function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); overlayMsg.style.display = 'none'; document.getElementById('grid-controls').style.display = 'none'; currentGrid = null; syncAll(); } }
     
+    function changeGlobalOpacity(val) { GLOBAL_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'part') obj.set('opacity', GLOBAL_OPACITY); }); canvas.requestRenderAll(); }
+    function changeCargoOpacity(val) { CARGO_OPACITY = parseFloat(val); canvas.getObjects().forEach(obj => { if (obj.type === 'cargo') obj.set('opacity', CARGO_OPACITY); }); canvas.requestRenderAll(); }
+
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
