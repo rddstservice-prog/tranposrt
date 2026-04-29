@@ -276,14 +276,11 @@
             const tL = l * 40, tW = w * 40;
             const wheelLen = 1.12 * 40; 
             const axlesX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
-            
             const cabL = tL * 0.3; 
             const instL = axlesX[1] - cabL - wheelLen/2; 
-            
             const colorSecondary = '#CCC'; 
             const fanCX = cabL + instL / 2; 
             const fanR = (instL * 0.75) / 2; 
-
             const wheelColor = '#222';
             let wheels = [];
             const rearWidth = 0.65 * 40; 
@@ -329,27 +326,21 @@
         } else {
             let modElems = [];
             
-            // ТОЛЬКО ТУТ: ФАСКА ГУСНЕКА
             if (n === 'Гуснек') {
                 const fsk = 0.65 * 40; 
                 const gL = l * 40, gW = w * 40;
-                
                 modElems.push(new fabric.Polygon([
-                    { x: fsk, y: 0 },          // Фаска верх
-                    { x: gL, y: 0 },           
-                    { x: gL, y: gW },          
-                    { x: fsk, y: gW },         
-                    { x: 0, y: gW - fsk },     // Фаска низ
-                    { x: 0, y: fsk }           
-                ], { 
-                    fill: c, stroke: 'black', strokeWidth: 2, 
-                    left: 0, top: -gW/2 
-                }));
-            } else {
-                modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }));
-            }
-            
-            if (n.startsWith('THP')) {
+                    { x: fsk, y: 0 }, { x: gL, y: 0 }, { x: gL, y: gW }, { x: fsk, y: gW }, { x: 0, y: gW - fsk }, { x: 0, y: fsk }           
+                ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -gW/2 }));
+            } else if (n.startsWith('THP')) {
+                const fsk = 0.32 * 40; // Скос 0,32м
+                const mL = l * 40, mW = w * 40;
+                // Полигон со скошенными углами со всех сторон
+                modElems.push(new fabric.Polygon([
+                    { x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk },
+                    { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }
+                ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
+
                 let axleCount = parseInt(n.split(' ')[1]);
                 for (let i = 0; i < axleCount; i++) {
                     let posX = (0.75 + i * 1.5) * 40;
@@ -369,6 +360,8 @@
                         }));
                     });
                 }
+            } else {
+                modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }));
             }
 
             obj = new fabric.Group(modElems, { left: cX, top: cY, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
