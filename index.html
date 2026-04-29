@@ -13,7 +13,6 @@
         * { box-sizing: border-box; touch-action: none; -webkit-user-select: none; }
         body { margin: 0; font-family: sans-serif; background: #000; color: white; display: flex; height: 100vh; width: 100vw; overflow: hidden; }
         
-        /* СТАРТОВЫЙ ЭКРАН (HUB) */
         #hub-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 1000; display: flex; flex-direction: column;
@@ -30,7 +29,6 @@
         .hub-card p { margin: 0; font-size: 10px; color: #777; }
         .hub-card.locked { opacity: 0.5; border-style: dashed; }
 
-        /* ОСНОВНОЙ ИНТЕРФЕЙС */
         #main-app { display: none; width: 100%; height: 100%; }
         
         #sidebar { width: 115px; min-width: 115px; background: #222; border-right: 1px solid var(--border); display: flex; flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 50; overflow-y: auto; padding-top: env(safe-area-inset-top); }
@@ -276,17 +274,19 @@
             ], { left: cX, top: cY, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40;
-            const cabL = tL * 0.3; 
-            const instL = cabL * 0.65; 
-            const colorSecondary = '#CCC'; 
-            const fanCX = cabL + instL / 2; 
-            const fanR = (instL * 0.8) / 2; 
-
             const wheelLen = 1.12 * 40; 
             const axlesX = [1.3 * 40, (1.3 + 2.6) * 40, (1.3 + 2.6 + 1.443) * 40, (1.3 + 2.6 + 1.443 + 1.42) * 40];
+            
+            // НОВЫЕ РАЗМЕРЫ: Установка теперь до начала 2 оси
+            const cabL = tL * 0.3; 
+            const instL = axlesX[1] - cabL - wheelLen/2; // Блок заканчивается ПЕРЕД колесом 2 оси
+            
+            const colorSecondary = '#CCC'; 
+            const fanCX = cabL + instL / 2; 
+            const fanR = (instL * 0.75) / 2; // Уменьшенный вентилятор
+
             const wheelColor = '#222';
             let wheels = [];
-
             const rearWidth = 0.65 * 40; 
             const frontWidth = rearWidth / 2; 
 
@@ -302,10 +302,26 @@
                 }
             });
 
+            // Элементы установки: радиаторы по бокам
+            const radW = instL * 0.8; 
+            const radH = 6;
+            const radiators = [
+                // Верхний радиатор
+                new fabric.Rect({ left: cabL + (instL-radW)/2, top: -tW/2 + 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 }),
+                // Нижний радиатор
+                new fabric.Rect({ left: cabL + (instL-radW)/2, top: tW/2 - radH - 2, width: radW, height: radH, fill: '#888', stroke: 'black', strokeWidth: 0.5 })
+            ];
+            // Добавляем штриховку на радиаторы
+            for(let step = 4; step < radW; step += 6) {
+                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: -tW/2 + 2, width: 1, height: radH, fill: '#444' }));
+                radiators.push(new fabric.Rect({ left: cabL + (instL-radW)/2 + step, top: tW/2 - radH - 2, width: 1, height: radH, fill: '#444' }));
+            }
+
             const truckBody = [
                 new fabric.Rect({ width: tL, height: tW, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' }),
                 new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
                 new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: colorSecondary, stroke: 'black', strokeWidth: 1 }),
+                ...radiators,
                 new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: 'transparent', stroke: '#444', strokeWidth: 2 }),
                 new fabric.Rect({ width: 2, height: fanR * 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
                 new fabric.Rect({ width: fanR * 2, height: 2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#444' }),
