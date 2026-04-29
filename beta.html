@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Module</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    
+    <style>
+        body, html { 
+            margin: 0; padding: 0; width: 100%; height: 100%; 
+            background: #000; overflow: hidden; 
+        }
+        #c { width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <canvas id="c"></canvas>
+
+<script>
+    // Сообщаем Telegram, что модуль открыт
+    const tg = window.Telegram?.WebApp;
+    if(tg) { tg.ready(); }
+    
+    // Инициализация пустого холста Fabric.js
+    const canvas = new fabric.Canvas('c', {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        backgroundColor: '#000'
+    });
+
+    // Авто-подстройка под размер экрана при повороте или изменении окна
+    window.addEventListener('resize', () => {
+        canvas.setDimensions({ width: window.innerWidth, height: window.innerHeight });
+        canvas.renderAll();
+    });
+
+    console.log("Модуль загружен: Пусто и готово к работе.");
+</script>
+</body>
+</html>
