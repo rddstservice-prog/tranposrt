@@ -118,6 +118,7 @@
         <div class="section-label">КАРТА</div>
         <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
         <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+        <button class="btn-white" id="ruler-btn" onclick="toggleRuler()">📏 ЛИНЕЙКА</button>
         
         <div class="section-label">МОДУЛЯЦИЯ</div>
         <button class="btn-freeze" onclick="freezeModel()">❄️ ЗАМОРОЗИТЬ</button>
@@ -193,6 +194,7 @@
 
     let PX_METER = 40, rotationTarget = null, isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, lastDistance = 0;
     let isCalibrating = false, calPoints = [], calTimer = null;
+    let isRulerMode = false, rulerPoints = [];
     let GLOBAL_OPACITY = 0.6; 
     let CARGO_OPACITY = 0.6;
     let activeCargoIndex = -1; 
@@ -246,7 +248,7 @@
             createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
             cargos.forEach((cargo, idx) => { if (!cargo.isPlaced) createHandle(cargo.left, cargo.top, 'cargo', idx); });
         }
-        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => dot.bringToFront());
+        canvas.getObjects().filter(o => o.isCalDot || o.isRuler).forEach(o => o.bringToFront());
         canvas.renderAll();
     }
 
@@ -258,46 +260,44 @@
         canvas.add(h); h.bringToFront();
     }
 
+    function toggleCalibration() { 
+        isCalibrating = !isCalibrating; isRulerMode = false; calPoints = []; 
+        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); 
+        document.getElementById('cal-msg').innerText = "УДЕРЖИВАЙТЕ 1 СЕК";
+        document.getElementById('cal-msg').style.display = isCalibrating ? 'block' : 'none'; 
+    }
+
+    function toggleRuler() {
+        isRulerMode = !isRulerMode; isCalibrating = false; rulerPoints = [];
+        canvas.getObjects().filter(o => o.isRuler).forEach(o => canvas.remove(o));
+        document.getElementById('cal-msg').innerText = "ЛИНЕЙКА: УДЕРЖИВАЙТЕ ТОЧКИ";
+        document.getElementById('cal-msg').style.display = isRulerMode ? 'block' : 'none';
+        syncAll();
+    }
+
     function freezeModel() {
         const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen);
         const cargos = canvas.getObjects().filter(o => o.type === 'cargo' && !o.isFrozen);
         if(parts.length === 0) return;
-
-        const groupId = "group_" + Date.now(); // Уникальный ID для удаления всей связки
-
+        const groupId = "group_" + Date.now();
         const truck = parts.find(p => p.vehicleType === 'truck');
         const modules = parts.filter(p => p.vehicleType === 'mod');
-
         const toFreeze = [];
         if(truck) toFreeze.push(truck);
         modules.forEach(m => toFreeze.push(m));
         cargos.forEach(c => toFreeze.push(c));
-
         toFreeze.forEach(obj => {
             obj.clone(cl => {
-                cl.set({ 
-                    selectable: true, 
-                    hasControls: false, 
-                    lockMovementX: true, 
-                    lockMovementY: true,
-                    isFrozen: true,
-                    freezeGroup: groupId, // Метка группы
-                    opacity: obj.type === 'cargo' ? CARGO_OPACITY : GLOBAL_OPACITY 
-                });
+                cl.set({ selectable: true, hasControls: false, lockMovementX: true, lockMovementY: true, isFrozen: true, freezeGroup: groupId, opacity: obj.type === 'cargo' ? CARGO_OPACITY : GLOBAL_OPACITY });
                 canvas.add(cl);
             });
         });
-
         setTimeout(() => {
             const map = canvas.getObjects().find(o => o.type === 'map');
             const frozen = canvas.getObjects().filter(o => o.isFrozen);
             const active = canvas.getObjects().filter(o => !o.isFrozen && o.type !== 'map' && o.type !== 'handle');
-            
             if(map) map.sendToBack();
-            frozen.forEach(f => {
-                if(f.vehicleType === 'truck') f.sendToBack();
-                if(f.type === 'cargo') f.bringToFront();
-            });
+            frozen.forEach(f => { if(f.vehicleType === 'truck') f.sendToBack(); if(f.type === 'cargo') f.bringToFront(); });
             active.forEach(a => a.bringToFront());
             canvas.requestRenderAll();
         }, 50);
@@ -311,28 +311,20 @@
         let offsetStr = prompt('Смещение (м):', '0'); if (offsetStr === null) return;
         const l = parseFloat(lStr), w = parseFloat(wStr), offset = parseFloat(offsetStr) || 0, sc = PX_METER / 40;
         const cargoRect = new fabric.Rect({ width: l * 40, height: w * 40, fill: '#FFD700', stroke: 'black', strokeWidth: 2, originX: 'center', originY: 'center' });
-        const crossSize = 15;
-        const cross1 = new fabric.Line([-crossSize, 0, crossSize, 0], { stroke: 'black', strokeWidth: 2, originX: 'center', originY: 'center' });
-        const cross2 = new fabric.Line([0, -crossSize, 0, crossSize], { stroke: 'black', strokeWidth: 2, originX: 'center', originY: 'center' });
-        const cargoObj = new fabric.Group([cargoRect, cross1, cross2], { type: 'cargo', offsetMeters: offset, isPlaced: false, isFrozen: false, originX: 'center', originY: 'center', hasControls: false, opacity: CARGO_OPACITY, scaleX: sc, scaleY: sc });
+        const cargoObj = new fabric.Group([cargoRect, new fabric.Line([-15, 0, 15, 0], { stroke: 'black', strokeWidth: 2 }), new fabric.Line([0, -15, 0, 15], { stroke: 'black', strokeWidth: 2 })], { type: 'cargo', offsetMeters: offset, isPlaced: false, isFrozen: false, originX: 'center', originY: 'center', hasControls: false, opacity: CARGO_OPACITY, scaleX: sc, scaleY: sc });
         canvas.add(cargoObj); document.getElementById('confirm-cargo').style.display = 'block'; syncAll();
     }
 
     function confirmCargo() { document.getElementById('confirm-cargo').style.display = 'none'; canvas.getObjects().filter(o => o.type === 'cargo').forEach(c => c.isPlaced = true); rotationTarget = null; activeCargoIndex = -1; syncAll(); }
 
     function updateMagnifier(ptr) {
-        if (!isCalibrating) return;
+        if (!isCalibrating && !isRulerMode) return;
         magEl.style.display = 'block';
         const size = 180, zoom = 2.5;
         magCtx.clearRect(0, 0, size, size); magCtx.save();
         magCtx.translate(size/2, size/2); magCtx.scale(zoom, zoom); magCtx.translate(-ptr.x, -ptr.y);
-        canvas.getObjects().forEach(obj => { if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cargo' || obj.isCalDot) obj.render(magCtx); });
+        canvas.getObjects().forEach(obj => { if (['map','part','cargo'].includes(obj.type) || obj.isCalDot || obj.isRuler) obj.render(magCtx); });
         magCtx.restore();
-    }
-
-    function addCalDot(ptr) {
-        const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, evented: false, isCalDot: true });
-        canvas.add(dot); dot.bringToFront();
     }
 
     canvas.on('mouse:down', function(opt) {
@@ -349,14 +341,30 @@
         startPosX = lastPosX = cX; startPosY = lastPosY = cY;
         canvas.selection = true;
 
-        if (isCalibrating) {
+        if (isCalibrating || isRulerMode) {
             updateMagnifier(ptr);
             calTimer = setTimeout(() => {
-                calPoints.push(ptr); addCalDot(ptr);
-                if (calPoints.length === 2) {
-                    const m = prompt("Метры:", "10");
-                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
-                    toggleCalibration(); syncAll();
+                if(isCalibrating) {
+                    calPoints.push(ptr);
+                    const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, evented: false, isCalDot: true });
+                    canvas.add(dot);
+                    if (calPoints.length === 2) {
+                        const m = prompt("Метры:", "10");
+                        if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
+                        toggleCalibration(); syncAll();
+                    }
+                } else if(isRulerMode) {
+                    rulerPoints.push(ptr);
+                    const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 6, fill: 'white', stroke: '#000', strokeWidth: 1, originX: 'center', originY: 'center', selectable: false, evented: false, isRuler: true });
+                    canvas.add(dot);
+                    if (rulerPoints.length === 2) {
+                        const distPx = Math.hypot(rulerPoints[0].x - rulerPoints[1].x, rulerPoints[0].y - rulerPoints[1].y);
+                        const distM = (distPx / PX_METER).toFixed(2);
+                        const line = new fabric.Line([rulerPoints[0].x, rulerPoints[0].y, rulerPoints[1].x, rulerPoints[1].y], { stroke: 'white', strokeWidth: 2, strokeDashArray: [5, 5], selectable: false, evented: false, isRuler: true });
+                        const text = new fabric.Text(distM + " м", { left: (rulerPoints[0].x + rulerPoints[1].x)/2, top: (rulerPoints[0].y + rulerPoints[1].y)/2 - 20, fontSize: 16, fill: 'white', backgroundColor: 'black', isRuler: true });
+                        canvas.add(line, text);
+                        rulerPoints = [];
+                    }
                 }
             }, 1000);
         }
@@ -375,27 +383,24 @@
         if (touches && touches.length === 2) {
             canvas.selection = false; isDraggingCanvas = false; rotationTarget = null;
             const dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-            const midPoint = new fabric.Point(canvas.width / 2, canvas.height / 2);
-            if (lastDistance > 0) canvas.zoomToPoint(midPoint, canvas.getZoom() * (dist / lastDistance));
+            if (lastDistance > 0) canvas.zoomToPoint(new fabric.Point(canvas.width / 2, canvas.height / 2), canvas.getZoom() * (dist / lastDistance));
             lastDistance = dist; return;
         }
         const cX = touches ? touches[0].clientX : evt.clientX;
         const cY = touches ? touches[0].clientY : evt.clientY;
         const ptr = canvas.getPointer(evt);
-        if (isCalibrating) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
-        
+        if (isCalibrating || isRulerMode) { updateMagnifier(ptr); if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { clearTimeout(calTimer); calTimer = null; } }
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen);
             const mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER / 40;
             if (rotationTarget === 'cargo') {
                 const cargos = canvas.getObjects().filter(o => o.type === 'cargo' && !o.isFrozen);
                 if (mod0 && cargos[activeCargoIndex]) {
-                    const radM = (mod0.angle * Math.PI) / 180;
                     const lastMod = parts.filter(p => p.vehicleType === 'mod').pop();
+                    const radM = (mod0.angle * Math.PI) / 180;
                     const centerX = (mod0.left + (lastMod.left + (lastMod.b_val * sc) * Math.cos(radM))) / 2;
                     const centerY = (mod0.top + (lastMod.top + (lastMod.b_val * sc) * Math.sin(radM))) / 2;
-                    const dotProduct = (ptr.x - centerX) * Math.cos(radM) + (ptr.y - centerY) * Math.sin(radM);
-                    cargos[activeCargoIndex].offsetMeters = dotProduct / PX_METER; syncAll();
+                    cargos[activeCargoIndex].offsetMeters = ((ptr.x - centerX) * Math.cos(radM) + (ptr.y - centerY) * Math.sin(radM)) / PX_METER; syncAll();
                 }
             } else if (parts.find(p => p.vehicleType === 'truck') && mod0) {
                 const truck = parts.find(p => p.vehicleType === 'truck');
@@ -411,8 +416,7 @@
     });
 
     canvas.on('object:moving', (e) => {
-        const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo') return;
-        if (moved.isFrozen) return; 
+        const moved = e.target; if (moved.type !== 'part' && moved.type !== 'cargo' || moved.isFrozen) return;
         const dx = moved.left - moved._lastLeft, dy = moved.top - moved._lastTop;
         canvas.getObjects().filter(o => (o.type === 'part' || o.type === 'cargo') && !o.isFrozen && o !== moved).forEach(p => { p.left += dx; p.top += dy; p.setCoords(); });
         updateLastPos(); syncAll();
@@ -433,53 +437,24 @@
         let obj;
         if(isMulti) {
             const bl = l*40, bw = (w*40)/2;
-            obj = new fabric.Group([
-                new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9})
-            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', isFrozen: false, b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
+            obj = new fabric.Group([new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}), new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black', strokeWidth:2}), new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9}), new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'black', strokeWidth:2, opacity: 0.9})], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', isFrozen: false, b_val: (l+1.2)*40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40, wL = 1.12 * 40, axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
-            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
-            const fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
-            const fanElements = [
-                new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }),
-                new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }),
-                ...Array.from({length: 8}).map((_, i) => new fabric.Rect({ width: 2, height: fanR * 1.8, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i * 45 })),
-                new fabric.Circle({ radius: fanR * 0.2, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#222' })
-            ];
+            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2, fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
             let wheels = []; axX.forEach((x, idx) => { const hWheel = (idx < 2) ? 13 : 26; [-(tW/2), (tW/2 - hWheel)].forEach(posY => wheels.push(new fabric.Rect({ left: x - wL/2, top: posY, width: wL, height: hWheel, fill: '#222', rx: 4, ry: 4, stroke: 'black', strokeWidth: 1 }))); });
-            const truckBody = [ new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }), new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }) ];
-            obj = new fabric.Group([...truckBody, ...fanElements, ...wheels], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, isFrozen: false, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
+            obj = new fabric.Group([new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', strokeWidth: 2, originY: 'center' }), new fabric.Rect({ width: cabL, height: tW, left: 0, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ width: instL, height: tW, left: cabL, top: -tW/2, fill: 'white', stroke: 'black', strokeWidth: 1 }), new fabric.Rect({ left: cabL + (instL - fanBoxSize) / 2, top: -fanBoxSize / 2, width: fanBoxSize, height: fanBoxSize, fill: '#ddd', stroke: '#555', strokeWidth: 1.5 }), new fabric.Circle({ radius: fanR, left: fanCX, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333', strokeWidth: 2 }), ...wheels], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, isFrozen: false, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
         } else {
             let modElems = []; const mL = l * 40, mW = w * 40;
             if (n === 'Гуснек') {
                 const f065 = 0.65 * 40;
-                // ИСХОДНАЯ ФОРМА ГУСНЕКА
                 modElems.push(new fabric.Polygon([{ x: f065, y: 0 }, { x: mL, y: 0 }, { x: mL, y: mW }, { x: f065, y: mW }, { x: 0, y: mW - f065 }, { x: 0, y: f065 }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
-                
-                // ЦИЛИНДРЫ: 2.3м от начала, удлиненные в 2.5 раза
-                const cylX = 2.3 * 40, cylYOff = 0.3 * 40;
-                const cylW = 0.5 * 40 * 2.5, cylH = 0.22 * 40;
-                
-                [cylYOff, -cylYOff].forEach(y => {
-                    modElems.push(new fabric.Rect({
-                        left: cylX, top: y, width: cylW, height: cylH,
-                        fill: '#444', stroke: 'black', strokeWidth: 1, originX: 'left', originY: 'center'
-                    }));
-                });
+                [0.3 * 40, -0.3 * 40].forEach(y => modElems.push(new fabric.Rect({ left: 2.3 * 40, top: y, width: 0.5 * 40 * 2.5, height: 0.22 * 40, fill: '#444', stroke: 'black', strokeWidth: 1, originX: 'left', originY: 'center' })));
             } else if (n.startsWith('THP')) {
                 const fsk = 0.32 * 40;
                 modElems.push(new fabric.Polygon([{ x: fsk, y: 0 }, { x: mL - fsk, y: 0 }, { x: mL, y: fsk }, { x: mL, y: mW - fsk }, { x: mL - fsk, y: mW }, { x: fsk, y: mW }, { x: 0, y: mW - fsk }, { x: 0, y: fsk }], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 }));
                 for (let i = 0; i < parseInt(n.split(' ')[1]); i++) {
-                    let posX = (0.75 + i * 1.5) * 40;
-                    [ -0.9 * 40, 0.9 * 40 ].forEach(posY => {
-                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]}));
-                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 1, height: 20, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
-                        modElems.push(new fabric.Rect({left: posX, top: posY, width: 20, height: 1, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.5)'}));
-                        modElems.push(new fabric.Circle({left: posX, top: posY, radius: 1.5, originX: 'center', originY: 'center', fill: 'rgba(0,0,0,0.7)'}));
-                    });
+                    let pX = (0.75 + i * 1.5) * 40;
+                    [-0.9*40, 0.9*40].forEach(pY => modElems.push(new fabric.Circle({left: pX, top: pY, radius: 18, originX: 'center', originY: 'center', fill: 'transparent', stroke: 'rgba(0,0,0,0.5)', strokeWidth: 1, strokeDashArray: [4, 4]})));
                 }
             } else { modElems.push(new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', strokeWidth: 2, originY: 'center' })); }
             obj = new fabric.Group(modElems, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, isFrozen: false, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center', hasControls: false, opacity: GLOBAL_OPACITY, scaleX: sc, scaleY: sc });
@@ -487,39 +462,22 @@
         canvas.add(obj); syncAll();
     }
 
-    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating?'block':'none'; }
-    
-    // Удаляет выделенное. Если объект заморожен - удаляет всю его группу
     function deleteSelected() { 
-        const active = canvas.getActiveObjects();
-        active.forEach(obj => { 
-            if (obj.isFrozen && obj.freezeGroup) {
-                // Ищем все объекты этой же группы заморозки
-                const group = canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup);
-                group.forEach(o => canvas.remove(o));
-            } else {
-                if (obj.type === 'part' || obj.type === 'cargo') canvas.remove(obj); 
-            }
+        canvas.getActiveObjects().forEach(obj => { 
+            if (obj.isFrozen && obj.freezeGroup) canvas.getObjects().filter(o => o.freezeGroup === obj.freezeGroup).forEach(o => canvas.remove(o));
+            else if (obj.type === 'part' || obj.type === 'cargo') canvas.remove(obj); 
         }); 
         canvas.discardActiveObject(); syncAll(); 
     }
 
-    function clearAllButMap() { 
-        if(confirm("Удалить всё (включая замороженные модели)?")) { 
-            canvas.getObjects().forEach(obj => { 
-                if (obj.type !== 'map') canvas.remove(obj); 
-            }); 
-            syncAll(); 
-        } 
-    }
+    function clearAllButMap() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(obj => { if (obj.type !== 'map') canvas.remove(obj); }); syncAll(); } }
     
     function loadMap(event) {
         const file = event.target.files[0]; if (!file) return;
         const reader = new FileReader(); reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
             canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
             img.set({ selectable: false, evented: false, type: 'map' }); canvas.add(img).sendToBack();
-            const scale = Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height);
-            canvas.setZoom(scale); canvas.requestRenderAll();
+            canvas.setZoom(Math.min((canvas.width - 40) / img.width, (canvas.height - 40) / img.height)); canvas.requestRenderAll();
         }); reader.readAsDataURL(file);
     }
 </script>
