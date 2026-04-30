@@ -59,20 +59,20 @@
         
         #sidebar { 
             width: 115px; 
-            min-width: 115px; 
-            background: #222; 
-            border-right: 1px solid var(--border); 
-            display: flex; 
-            flex-direction: column; 
-            padding: 10px 5px; 
-            gap: 8px; 
-            z-index: 50; 
-            overflow-y: auto; 
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch; 
-            padding-top: env(safe-area-inset-top); 
-            height: 100dvh; /* Используем динамическую высоту */
-            touch-action: pan-y; /* РАЗРЕШАЕМ вертикальную прокрутку */
+    min-width: 115px; 
+    background: #222; 
+    border-right: 1px solid var(--border); 
+    display: flex; 
+    flex-direction: column; 
+    padding: 10px 5px; 
+    gap: 8px; 
+    z-index: 999; /* Подняли выше всех */
+    overflow-y: auto !important; /* Принудительный скролл */
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch; 
+    padding-top: env(safe-area-inset-top); 
+    height: 100dvh; 
+    touch-action: pan-y !important; /* Разрешаем только вертикальный свайп */
         }
 
         #sidebar::-webkit-scrollbar { width: 4px; }
@@ -168,6 +168,14 @@
     }
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
+    // Разрешаем прокрутку внутри сайдбара, останавливая "захват" события картой
+document.getElementById('sidebar').addEventListener('touchstart', (e) => {
+    e.stopPropagation();
+}, { passive: true });
+
+document.getElementById('sidebar').addEventListener('touchmove', (e) => {
+    e.stopPropagation();
+}, { passive: true });
 
     const wrap = document.getElementById('canvas-wrap');
     const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
