@@ -2,241 +2,427 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Симулятор Тралов THP</title>
-    <!-- Подключаем библиотеку Fabric.js -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>HeavyTransport v0.1.0-beta</title>
+    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    
     <style>
-        body {
-            margin: 0;
-            overflow: hidden;
-            font-family: sans-serif;
-            background: #e0e0e0;
-            touch-action: none;
+        :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
+        
+        * { box-sizing: border-box; -webkit-user-select: none; margin: 0; padding: 0; }
+        
+        body { 
+            font-family: sans-serif; background: #000; color: white; 
+            display: flex; height: 100dvh; width: 100vw; overflow: hidden; 
         }
-        #controls {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 10;
-            display: flex;
-            flex-direction: column;
-            gap: 5px;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+
+        #hub-screen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #111; z-index: 1000; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; padding: 20px;
         }
-        button {
-            padding: 8px 12px;
-            cursor: pointer;
-            border: 1px solid #ccc;
-            background: #fff;
-            border-radius: 4px;
-            font-size: 14px;
+
+        #main-app { display: none; width: 100%; height: 100%; flex-direction: row; }
+        
+        #sidebar { 
+            width: 115px; min-width: 115px; background: #222; 
+            border-right: 1px solid var(--border); display: flex; 
+            flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 999; 
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            touch-action: pan-y;
         }
-        button:active { background: #ddd; }
-        #canvas-container {
-            width: 100vw;
-            height: 100vh;
+
+        #sidebar::-webkit-scrollbar { width: 4px; }
+        #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+        
+        button { 
+            width: 100%; padding: 12px 2px; border: none; border-radius: 6px; 
+            font-size: 10px; font-weight: bold; cursor: pointer; 
+            text-transform: uppercase; color: white; flex-shrink: 0; 
         }
+        .btn-tool { background: #444; } 
+        .btn-white { background: #fff; color: #000; } 
+        .btn-red { background: var(--red); } 
+        .btn-blue { background: var(--blue); } 
+        .btn-danger { background: #551111; }
+        
+        .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
+        
+        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
+        #c { touch-action: none; } 
+        
+        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; flex-shrink: 0; }
+        input[type=range] { width: 100%; accent-color: var(--blue); }
+
+        .overlay-msg { 
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
+            background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; 
+            border-radius: 25px; font-size: 11px; z-index: 100; display: none; 
+            pointer-events: none; border: 2px solid var(--blue); 
+        }
+        
+        #magnifier { 
+            position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; 
+            border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; 
+            background: #111; display: none; z-index: 200; pointer-events: none; 
+            box-shadow: 0 0 30px rgba(0,0,0,0.7); 
+        }
+        #mag-canvas { position: absolute; top: 0; left: 0; }
+        #mag-crosshair { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+            width: 30px; height: 30px; 
+        }
+        #mag-crosshair::before, #mag-crosshair::after { 
+            content: ''; position: absolute; background: var(--blue); 
+        }
+        #mag-crosshair::before { width: 100%; height: 2px; top: 14px; left: 0; }
+        #mag-crosshair::after { height: 100%; width: 2px; left: 14px; top: 0; }
     </style>
 </head>
 <body>
 
-<div id="controls">
-    <strong>Техника:</strong>
-    <button onclick="addVehicle('Тягач 8x4', 7.8, 2.5, '#fff', 6.2, 'truck', 0)">+ Тягач 8x4</button>
-    <button onclick="addVehicle('Гуснек', 3.8, 2.5, '#A2231D', 3.8, 'mod', 0.6)">+ Гуснек</button>
-    <button onclick="addVehicle('Модуль 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">+ Модуль 3 оси</button>
-    <button onclick="addVehicle('Модуль 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">+ Модуль 4 оси</button>
-    <button onclick="addVehicle('Балки', 8.0, 2.8, '#A2231D', 8.0, 'mod', 0, true)">+ Балки (вставка)</button>
-    <hr>
-    <strong>Управление:</strong>
-    <button onclick="rotationTarget = 'truck'">Поворот Тягача</button>
-    <button onclick="rotationTarget = 'mod'">Излом прицепа</button>
-    <button onclick="canvas.clear(); canvas.backgroundColor='#f0f0f0';">Очистить</button>
+<div id="hub-screen">
+    <div style="font-size: 24px; font-weight: bold; color: var(--blue); margin-bottom: 10px;">v0.1.0-beta</div>
+    <div style="font-size: 12px; color: #777; margin-bottom: 40px;">HEAVY TRANSPORT | BUILD 10-18</div>
+    <button class="btn-blue" style="width: auto; padding: 15px 40px; border-radius: 30px;" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
-<div id="canvas-container">
-    <canvas id="c"></canvas>
+<div id="main-app">
+    <div id="sidebar">
+        <div class="section-label">КАРТА</div>
+        <button class="btn-tool" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
+        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
+        
+        <div class="section-label">ТЕХНИКА</div>
+        <button class="btn-white" onclick="addVehicle('Тягач 8х4', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ 8х4</button>
+        <button class="btn-red" onclick="addVehicle('Гуснек', 4.2, 2.5, '#A2231D', 4.2, 'mod', 0.5)">ГУСНЕК</button>
+        <button class="btn-red" style="background:#555" onclick="addBeams()">🏗 БАЛКИ</button>
+        
+        <div class="section-label">МОДУЛИ THP</div>
+        <button class="btn-red" onclick="addVehicle('THP 2', 3.0, 3.0, '#A2231D', 3.0, 'mod', 0)">THP 2</button>
+        <button class="btn-red" onclick="addVehicle('THP 3', 4.5, 3.0, '#A2231D', 4.5, 'mod', 0)">THP 3</button>
+        <button class="btn-red" onclick="addVehicle('THP 4', 6.0, 3.0, '#A2231D', 6.0, 'mod', 0)">THP 4</button>
+        <button class="btn-red" onclick="addVehicle('THP 5', 7.5, 3.0, '#A2231D', 7.5, 'mod', 0)">THP 5</button>
+        <button class="btn-red" onclick="addVehicle('THP 6', 9.0, 3.0, '#A2231D', 9.0, 'mod', 0)">THP 6</button>
+
+        <div class="section-label">ГРУЗ</div>
+        <button class="btn-red" style="background:#e6a100; color:black;" onclick="addCargo()">📦 ПОСТАВИТЬ</button>
+
+        <div class="section-label">ПРОЗР. ТЕХНИКИ</div>
+        <div class="opacity-wrap">
+            <input type="range" id="op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeGlobalOpacity(this.value)">
+        </div>
+        
+        <div class="section-label">ПРОЗР. ГРУЗА</div>
+        <div class="opacity-wrap">
+            <input type="range" id="cargo-op-slider" min="0.1" max="1.0" step="0.1" value="0.6" oninput="changeCargoOpacity(this.value)">
+        </div>
+        
+        <div style="flex-grow: 1; min-height: 20px;"></div>
+        <button class="btn-danger" style="margin-bottom: 4px; background: #8B4513;" onclick="clearVehiclesOnly()">🧹 ОЧИСТИТЬ</button>
+        <button class="btn-danger" onclick="deleteSelected()">🗑 УДАЛИТЬ</button>
+        <div style="min-height: 20px;"></div>
+    </div>
+
+    <input type="file" id="file-input" style="display:none" accept="image/*" onchange="loadMap(event)">
+
+    <div id="canvas-wrap">
+        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
+        <div id="magnifier">
+            <canvas id="mag-canvas" width="180" height="180"></canvas>
+            <div id="mag-crosshair"></div>
+        </div>
+        <canvas id="c"></canvas>
+    </div>
 </div>
 
 <script>
-    // Инициализация холста
-    const canvas = new fabric.Canvas('c', {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        selection: false,
-        preserveObjectStacking: true,
-        backgroundColor: '#f0f0f0'
+    const tg = window.Telegram?.WebApp; 
+    if(tg) { tg.expand(); tg.ready(); }
+
+    const wrap = document.getElementById('canvas-wrap');
+    const canvas = new fabric.Canvas('c', { 
+        backgroundColor: '#333', 
+        selection: true, 
+        allowTouchScrolling: true,
+        imageSmoothingEnabled: false 
     });
 
-    // Настройки масштаба
-    const PX_METER = 40; 
-    const GLOBAL_OPACITY = 0.85;
+    const magEl = document.getElementById('magnifier');
+    const magCtx = document.getElementById('mag-canvas').getContext('2d');
 
-    // Состояние управления
-    let lastDistance = 0;
-    let lastPosX = 0;
-    let lastPosY = 0;
-    let isDraggingCanvas = false;
-    let rotationTarget = null;
+    let PX_METER = 40, isCalibrating = false, calPoints = [], calTimer = null;
+    let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargoIndex = -1;
+    let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, rotationTarget = null;
 
-    /**
-     * Основная функция отрисовки техники
-     */
-    function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
-        const sc = PX_METER / 40; 
-        let vpt = canvas.viewportTransform;
+    function startEditor() {
+        document.getElementById('hub-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        resizeCanvas();
+    }
+
+    function resizeCanvas() {
+        canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight });
+        canvas.requestRenderAll();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function syncAll() {
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
+        const map = canvas.getObjects().find(o => o.type === 'map');
+        const truck = parts.find(p => p.vehicleType === 'truck');
+        const modules = parts.filter(p => p.vehicleType === 'mod');
+        const sc = PX_METER / 40;
         
-        let cX = (canvas.width / 2 - vpt[4]) / canvas.getZoom();
-        let cY = (canvas.height / 2 - vpt[5]) / canvas.getZoom();
-        
-        const activeParts = canvas.getObjects().filter(o => o.type === 'part' && !o.isFrozen);
-        let lastAngle = activeParts.length ? activeParts[activeParts.length - 1].angle : 0;
+        if(map) map.sendToBack();
+        canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
+        parts.forEach(p => p.set({ scaleX: sc, scaleY: sc }));
 
-        if (activeParts.length) {
-            let last = activeParts[activeParts.length - 1];
-            let rad = (lastAngle * Math.PI) / 180;
-            cX = last.left + (last.b_val * sc) * Math.cos(rad) - (f || 0) * sc * Math.cos(rad);
-            cY = last.top + (last.b_val * sc) * Math.sin(rad) - (f || 0) * sc * Math.sin(rad);
+        if (truck && modules.length > 0) {
+            const mod0 = modules[0];
+            const radM = (mod0.angle * Math.PI) / 180;
+            const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+            const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+            const radT = (truck.angle * Math.PI) / 180;
+
+            truck.set({ 
+                left: kpX - (truck.b_val * sc) * Math.cos(radT), 
+                top: kpY - (truck.b_val * sc) * Math.sin(radT) 
+            });
+
+            modules.forEach((mod, idx) => {
+                if (idx > 0) {
+                    const prev = modules[idx-1];
+                    const radP = (prev.angle * Math.PI) / 180;
+                    mod.set({ 
+                        left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), 
+                        top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) 
+                    });
+                }
+                mod.setCoords();
+            });
+            
+            cargos.forEach(cargo => {
+                const rad = (mod0.angle * Math.PI) / 180;
+                const lastMod = modules[modules.length - 1];
+                const centerX = (mod0.left + (lastMod.left + (lastMod.b_val * sc) * Math.cos(rad))) / 2;
+                const centerY = (mod0.top + (lastMod.top + (lastMod.b_val * sc) * Math.sin(rad))) / 2;
+                cargo.set({
+                    left: centerX + (cargo.offsetMeters * PX_METER) * Math.cos(rad),
+                    top: centerY + (cargo.offsetMeters * PX_METER) * Math.sin(rad),
+                    angle: mod0.angle, scaleX: sc, scaleY: sc
+                });
+                cargo.setCoords();
+            });
+
+            createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck');
+            const lastMod = modules[modules.length-1];
+            const radL = (lastMod.angle * Math.PI) / 180;
+            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+            cargos.forEach((c, i) => createHandle(c.left, c.top, 'cargo', i));
         }
+        canvas.renderAll();
+    }
 
+    function createHandle(x, y, t, idx = -1) {
+        const h = new fabric.Circle({ 
+            left: x, top: y, radius: 10, fill: '#2196F3', stroke: 'white', 
+            strokeWidth: 2, originX: 'center', originY: 'center', 
+            type: 'handle', handleType: t, cargoIdx: idx, hasControls: false 
+        });
+        canvas.add(h);
+    }
+
+    function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
+        const vpt = canvas.viewportTransform;
+        let cX = (canvas.width/2 - vpt[4])/canvas.getZoom();
+        let cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        let lastAngle = parts.length > 0 ? parts[parts.length-1].angle : 0;
         let obj;
 
-        if (isMulti) {
-            // МОДЕЛЬ БАЛОК
-            const bl = l * 40, bw = (w * 40) / 2;
+        const meter = 40;
+        const rectW = l * meter;
+        const rectH = w * meter;
+
+        if(isMulti) {
+            const bl = l*meter, bw = (w*meter)/2;
             obj = new fabric.Group([
-                new fabric.Rect({ left: 24, top: -bw, width: bl, height: 18, fill: '#A2231D', stroke: 'black', strokeWidth: 1.5 }),
-                new fabric.Rect({ left: 24, top: bw - 18, width: bl, height: 18, fill: '#A2231D', stroke: 'black', strokeWidth: 1.5 }),
-                new fabric.Rect({ left: 0, top: -60, width: 24, height: 120, fill: '#333', stroke: 'black' }),
-                new fabric.Rect({ left: bl + 24, top: -60, width: 24, height: 120, fill: '#333', stroke: 'black' })
-            ], { 
-                left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', 
-                b_val: (l + 1.2) * 40, f_val: 0, originX: 'left', originY: 'center', hasControls: false, scaleX: sc, scaleY: sc 
-            });
-
+                new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
+                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'#222'}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'#222'})
+            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*meter, f_val: 0 });
         } else if (t === 'truck') {
-            // ТЯГАЧ С ВЕНТИЛЯТОРОМ
-            const tL = l * 40, tW = w * 40;
-            const axX = [1.3 * 40, 3.9 * 40, 5.3 * 40, 6.7 * 40];
-            const cabL = 2.2 * 40;
-            const instL = 1.5 * 40;
-            const fBox = instL * 0.8;
-            const fCX = cabL + instL / 2;
-
-            let wheels = [];
-            axX.forEach((x, i) => {
-                const hw = (i < 2) ? 12 : 24;
-                [-(tW/2), (tW/2-hw)].forEach(y => {
-                    wheels.push(new fabric.Rect({ left: x-20, top: y, width: 40, height: hw, fill: '#222', rx: 4, ry: 4 }));
+            const cabL = rectW * 0.35;
+            const components = [
+                new fabric.Rect({ width: rectW, height: rectH, fill: '#333', rx: 5, originY: 'center' }),
+                new fabric.Rect({ width: cabL, height: rectH, fill: 'white', stroke: '#999', rx: 8, originY: 'center' }),
+                new fabric.Rect({ left: 5, top: -rectH/2 + 5, width: cabL/3, height: rectH - 10, fill: '#333', rx: 2, originY: 'top' }),
+                new fabric.Circle({ radius: 12, left: b * meter, top: 0, fill: '#111', stroke: '#555', originX: 'center', originY: 'center' })
+            ];
+            const axX = [1.3 * meter, 2.6 * meter, 5.4 * meter, 6.8 * meter];
+            axX.forEach((x, idx) => {
+                const wheelW = 1.1 * meter;
+                const wheelH = (idx < 2) ? 14 : 26; 
+                [-(rectH/2), (rectH/2 - wheelH)].forEach(y => {
+                    components.push(new fabric.Rect({ left: x - wheelW/2, top: y, width: wheelW, height: wheelH, fill: '#111', rx: 3 }));
                 });
             });
-
-            const fan = [
-                new fabric.Rect({ left: cabL, top: -tW/2, width: instL, height: tW, fill: '#ddd', stroke: '#333' }),
-                new fabric.Circle({ radius: 25, left: fCX, top: 0, originX: 'center', originY: 'center', fill: '#bbb', stroke: '#444' }),
-                ...Array.from({length:8}).map((_,i) => new fabric.Rect({ width: 2, height: 45, left: fCX, top: 0, originX: 'center', originY: 'center', fill: '#333', angle: i*45 }))
-            ];
-
-            obj = new fabric.Group([
-                new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', originY: 'center' }),
-                new fabric.Rect({ width: cabL, height: tW, fill: '#eee', stroke: 'black' }),
-                ...fan, ...wheels
-            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'truck', b_val: b*40, f_val: f*40, originX: 'left', originY: 'center', hasControls: false, scaleX: sc, scaleY: sc });
-
+            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * meter, f_val: (f||0) * meter, originX: 'left', originY: 'center' });
         } else {
-            // МОДУЛИ (ВОСЬМИГРАННИКИ)
-            const mL = l * 40, mW = w * 40, fsk = 12;
-            const shape = new fabric.Polygon([
-                {x:fsk, y:0}, {x:mL-fsk, y:0}, {x:mL, y:fsk}, {x:mL, y:mW-fsk},
-                {x:mL-fsk, y:mW}, {x:fsk, y:mW}, {x:0, y:mW-fsk}, {x:0, y:fsk}
-            ], { fill: c, stroke: 'black', strokeWidth: 2, left: 0, top: -mW/2 });
-
-            obj = new fabric.Group([shape], { 
-                left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', 
-                b_val: b*40, f_val: f*40, originX: 'left', originY: 'center', hasControls: false, scaleX: sc, scaleY: sc 
-            });
+            const components = [
+                new fabric.Rect({ width: rectW, height: rectH, fill: c, stroke: '#600', strokeWidth: 1, rx: 2, originY: 'center' }),
+                new fabric.Rect({ top: -4, width: rectW, height: 8, fill: 'rgba(0,0,0,0.2)', originY: 'center' })
+            ];
+            for(let x = 0.75 * meter; x < rectW; x += 1.5 * meter) {
+                [-(rectH/2) + 2, (rectH/2) - 22].forEach(y => {
+                    components.push(new fabric.Rect({ left: x - 15, top: y, width: 30, height: 20, fill: '#222', rx: 2 }));
+                });
+            }
+            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * meter, f_val: (f||0) * meter, originX: 'left', originY: 'center' });
         }
-
-        obj.set({ selectable: false, evented: false, opacity: GLOBAL_OPACITY });
+        obj.set({ hasControls: false, opacity: GLOBAL_OPACITY });
         canvas.add(obj);
         syncAll();
     }
 
-    /**
-     * Логика перемещения, зума и вращения
-     */
-    canvas.on('mouse:move', function(opt) {
-        const e = opt.e;
-        const touches = e.touches;
-        const currX = touches ? touches[0].clientX : e.clientX;
-        const currY = touches ? touches[0].clientY : e.clientY;
-        const ptr = canvas.getPointer(e);
+    function addBeams() {
+        let w = prompt('Ширина (3.0 - 5.5):', '3.0'); 
+        if(w) { 
+            let l = prompt('Длина (4.0 - 30.0):', '8.5'); 
+            if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true);
+        }
+    }
 
-        // Pinch Zoom
-        if (touches && touches.length === 2) {
-            let dist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
-            if (lastDistance > 0) {
-                let zoom = canvas.getZoom() * (dist / lastDistance);
-                zoom = Math.min(Math.max(zoom, 0.1), 10);
-                const midX = (touches[0].clientX + touches[1].clientX) / 2;
-                const midY = (touches[0].clientY + touches[1].clientY) / 2;
-                canvas.zoomToPoint({ x: midX, y: midY }, zoom);
-            }
-            lastDistance = dist;
+    function addCargo() {
+        let l = prompt('Длина (м):', '10.0'); if (!l) return;
+        let w = prompt('Ширина (м):', '3.5'); if (!w) return;
+        const cargo = new fabric.Group([
+            new fabric.Rect({ width: l*40, height: w*40, fill: '#FFD700', stroke: 'black', originX: 'center', originY: 'center' }),
+            new fabric.Line([-15, 0, 15, 0], { stroke: 'black' }),
+            new fabric.Line([0, -15, 0, 15], { stroke: 'black' })
+        ], { type: 'cargo', offsetMeters: 0, originX: 'center', originY: 'center', hasControls: false, opacity: CARGO_OPACITY });
+        canvas.add(cargo);
+        syncAll();
+    }
+
+    function toggleCalibration() {
+        isCalibrating = !isCalibrating;
+        calPoints = [];
+        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
+        document.getElementById('cal-msg').style.display = isCalibrating ? 'block' : 'none';
+        document.getElementById('cal-btn').style.background = isCalibrating ? '#e6a100' : '';
+    }
+
+    function updateMagnifier(ptr) {
+        if (!isCalibrating) return;
+        magEl.style.display = 'block';
+        const size = 180, zoom = 2.5;
+        magCtx.clearRect(0, 0, size, size);
+        magCtx.save();
+        magCtx.translate(size/2, size/2);
+        magCtx.scale(zoom, zoom);
+        magCtx.translate(-ptr.x, -ptr.y);
+        canvas.getObjects().forEach(obj => { 
+            if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cargo' || obj.isCalDot) obj.render(magCtx); 
+        });
+        magCtx.restore();
+    }
+
+    canvas.on('mouse:down', function(opt) {
+        const evt = opt.e;
+        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const ptr = canvas.getPointer(evt);
+        lastPosX = cX; lastPosY = cY; startPosX = cX; startPosY = cY;
+
+        if (isCalibrating) {
+            updateMagnifier(ptr);
+            calTimer = setTimeout(() => {
+                calPoints.push(ptr);
+                canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, isCalDot: true }));
+                if (calPoints.length === 2) {
+                    const m = prompt("Метров:", "10");
+                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
+                    toggleCalibration();
+                    syncAll();
+                }
+            }, 1000);
+        }
+        if (opt.target && opt.target.type === 'handle') {
+            rotationTarget = opt.target.handleType;
+            if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
             return;
         }
+        if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
+    });
 
-        // Вращение через шкворень
+    canvas.on('mouse:move', function(opt) {
+        const evt = opt.e;
+        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+        const ptr = canvas.getPointer(evt);
+
+        if (isCalibrating) {
+            updateMagnifier(ptr);
+            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) clearTimeout(calTimer);
+        }
+
         if (rotationTarget) {
             const parts = canvas.getObjects().filter(o => o.type === 'part');
             const truck = parts.find(p => p.vehicleType === 'truck');
-            const m0 = parts.find(p => p.vehicleType === 'mod');
-            if (truck && m0) {
-                const radM = (m0.angle * Math.PI) / 180;
-                const kpX = m0.left + (m0.f_val * (PX_METER/40)) * Math.cos(radM);
-                const kpY = m0.top + (m0.f_val * (PX_METER/40)) * Math.sin(radM);
-
-                if (rotationTarget === 'truck') {
-                    truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
-                } else {
-                    const newAngle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI;
-                    parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = newAngle);
+            const mod0 = parts.find(p => p.vehicleType === 'mod');
+            const sc = PX_METER / 40;
+            if (rotationTarget === 'truck' && truck && mod0) {
+                const radM = (mod0.angle * Math.PI) / 180;
+                const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+                const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
+            } else if (rotationTarget === 'trailer' && mod0) {
+                const radM = (mod0.angle * Math.PI) / 180;
+                const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+                const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI);
+            } else if (rotationTarget === 'cargo') {
+                const c = canvas.getObjects().filter(o => o.type === 'cargo')[activeCargoIndex];
+                if(c && mod0) {
+                    const rad = (mod0.angle * Math.PI) / 180;
+                    const dist = (ptr.x - c.left) * Math.cos(rad) + (ptr.y - c.top) * Math.sin(rad);
+                    c.offsetMeters += dist / PX_METER;
                 }
-                syncAll();
             }
+            syncAll();
         } else if (isDraggingCanvas) {
-            let vpt = canvas.viewportTransform;
-            vpt[4] += currX - lastPosX;
-            vpt[5] += currY - lastPosY;
+            const vpt = canvas.viewportTransform;
+            vpt[4] += cX - lastPosX; vpt[5] += cY - lastPosY;
             canvas.requestRenderAll();
         }
-        lastPosX = currX; lastPosY = currY;
+        lastPosX = cX; lastPosY = cY;
     });
 
-    canvas.on('mouse:down', (opt) => { if(!opt.target) isDraggingCanvas = true; });
-    canvas.on('mouse:up', () => { isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; });
+    canvas.on('mouse:up', () => { clearTimeout(calTimer); magEl.style.display = 'none'; isDraggingCanvas = false; rotationTarget = null; });
 
-    function syncAll() {
-        const parts = canvas.getObjects().filter(o => o.type === 'part');
-        const sc = PX_METER / 40;
-        for (let i = 1; i < parts.length; i++) {
-            let prev = parts[i-1], curr = parts[i];
-            let radP = (prev.angle * Math.PI) / 180;
-            curr.left = prev.left + (prev.b_val * sc) * Math.cos(radP) - (curr.f_val * sc) * Math.cos((curr.angle * Math.PI) / 180);
-            curr.top = prev.top + (prev.b_val * sc) * Math.sin(radP) - (curr.f_val * sc) * Math.sin((curr.angle * Math.PI) / 180);
-        }
-        canvas.requestRenderAll();
+    function changeGlobalOpacity(v) { GLOBAL_OPACITY = v; canvas.getObjects().filter(o => o.type === 'part').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
+    function changeCargoOpacity(v) { CARGO_OPACITY = v; canvas.getObjects().filter(o => o.type === 'cargo').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
+    function deleteSelected() { canvas.getActiveObjects().forEach(o => { if(o.type==='part'||o.type==='cargo') canvas.remove(o); }); syncAll(); }
+    function clearVehiclesOnly() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(o => { if(o.type==='part'||o.type==='cargo'||o.type==='handle') canvas.remove(o); }); syncAll(); } }
+    
+    function loadMap(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
+            canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
+            img.set({ selectable: false, evented: false, type: 'map' });
+            canvas.add(img).sendToBack();
+            const scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height);
+            canvas.setZoom(scale); canvas.requestRenderAll();
+        });
+        reader.readAsDataURL(file);
     }
-
-    window.addEventListener('resize', () => {
-        canvas.setWidth(window.innerWidth);
-        canvas.setHeight(window.innerHeight);
-    });
 </script>
-
 </body>
 </html>
