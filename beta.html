@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Beta v0.1.4</title>
+    <title>Beta v0.1.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 80px; --accent: #FF9800; }
@@ -28,7 +28,6 @@
 
         #canvas-container { flex-grow: 1; position: relative; }
         
-        /* ЛУПА ВЫШЕ ПАЛЬЦА */
         #magnifier {
             position: absolute; width: 120px; height: 120px; border: 2px solid var(--accent);
             border-radius: 50%; pointer-events: none; display: none; z-index: 1000;
@@ -50,7 +49,7 @@
 
 <div id="app">
     <aside id="sidebar">
-        <div class="version-label">v 0.1.4</div>
+        <div class="version-label">v 0.1.5</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🗺</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -107,20 +106,20 @@
         canvas.renderAll();
     }
 
-    // --- ЛОГИКА УПРАВЛЕНИЯ v0.1.4 ---
+    // --- ЛОГИКА УПРАВЛЕНИЯ v0.1.5 ---
     canvas.on('mouse:down', function(opt) {
         const e = opt.e;
         const touch = e.touches ? e.touches[0] : e;
         
-        // Перемещение доступно всегда
+        // Перемещение работает всегда
         this.isDragging = true;
         this.lastPosX = touch.clientX;
         this.lastPosY = touch.clientY;
 
+        // Лупа и точки только в режиме масштаба и только одним пальцем
         if (isScaleMode && (!e.touches || e.touches.length === 1)) {
             showMagnifier(touch);
             const ptr = canvas.getPointer(e);
-            // Точка через 1.5 секунды
             calTimer = setTimeout(() => {
                 const dot = new fabric.Circle({
                     left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(), fill: 'red',
@@ -147,6 +146,7 @@
             this.lastPosY = touch.clientY;
         }
 
+        // Обновляем лупу, если мы в режиме масштаба и двигаем карту/палец
         if (isScaleMode && this.isDragging && (!e.touches || e.touches.length === 1)) {
             showMagnifier(touch);
         }
@@ -158,9 +158,9 @@
         clearTimeout(calTimer);
     });
 
-    // Зум только в режиме масштаба
+    // ГЛОБАЛЬНЫЙ ЗУМ (работает всегда)
     canvas.on('touch:gesture', function(opt) {
-        if (isScaleMode && opt.e.touches && opt.e.touches.length == 2) {
+        if (opt.e.touches && opt.e.touches.length == 2) {
             let zoom = canvas.getZoom() * opt.self.scale;
             if (zoom > 20) zoom = 20; if (zoom < 0.01) zoom = 0.01;
             canvas.zoomToPoint({ x: opt.self.x, y: opt.self.y }, zoom);
@@ -168,10 +168,19 @@
         }
     });
 
+    // Для мышки (колесо)
+    canvas.on('mouse:wheel', function(opt) {
+        let delta = opt.e.deltaY;
+        let zoom = canvas.getZoom() * (0.999 ** delta);
+        if (zoom > 20) zoom = 20; if (zoom < 0.01) zoom = 0.01;
+        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+    });
+
     function showMagnifier(touch) {
         const ptr = canvas.getPointer(touch);
         magnifier.style.display = 'block';
-        // Центрируем над пальцем с выносом вверх
         magnifier.style.left = (touch.clientX - 60) + 'px';
         magnifier.style.top = (touch.clientY - 180) + 'px'; 
 
