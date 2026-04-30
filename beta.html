@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5</title>
+    <title>Mobile Beta v0.4.5 - Fixed</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -23,8 +23,8 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            transform: translate(-50%, -100%);
-            will-change: transform, left, top;
+            /* Убрали transform, чтобы не двоилось смещение */
+            will-change: left, top;
         }
 
         #magnifier { 
@@ -41,24 +41,23 @@
             background: var(--accent); color: #000; 
             padding: 3px 8px; border-radius: 4px; 
             font-size: 9px; font-weight: 900; 
-            margin-bottom: 12px; white-space: nowrap; /* margin-bottom вместо top, так как текст теперь сверху */
+            margin-bottom: 8px; white-space: nowrap;
             box-shadow: 0 3px 10px rgba(0,0,0,0.3);
         }
 
-        #mag-canvas { width: 100%; height: 100%; }
+        #mag-canvas { width: 100%; height: 100%; display: block; }
 
-        .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
-        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: var(--accent); opacity: 0.6; }
-        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--accent); opacity: 0.6; }
+        .crosshair { position: absolute; top: 0; left: 0; width: 120px; height: 120px; pointer-events: none; }
+        .crosshair::before { content: ''; position: absolute; top: 60px; left: 0; width: 120px; height: 1px; background: var(--accent); opacity: 0.8; }
+        .crosshair::after { content: ''; position: absolute; left: 60px; top: 0; width: 1px; height: 120px; background: var(--accent); opacity: 0.8; }
 
-        /* Стили модального окна */
         #dist-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center;
         }
         .modal-content {
             background: #252525; padding: 20px; border-radius: 12px; 
-            border: 1px solid var(--accent); text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            border: 1px solid var(--accent); text-align: center;
         }
         .modal-content input {
             width: 80px; text-align: center; padding: 8px; font-size: 16px; 
@@ -67,11 +66,12 @@
         }
         .modal-content button {
             background: var(--accent); color: #000; border: none; padding: 10px 25px; 
-            border-radius: 6px; font-weight: bold; font-size: 14px; width: 100%;
+            border-radius: 6px; font-weight: bold;
         }
     </style>
 </head>
 <body>
+
 <div id="dist-modal">
     <div class="modal-content">
         <div style="font-size: 14px; color: white;">Расстояние между точками:</div>
@@ -120,9 +120,9 @@
     let isMultiTouch = false;
     let rafId = null;
 
-    // Смещение: 150px. При таком значении и отступе `top: touch.clientY - 88` 
-    // перекрестие лупы смотрит ИДЕАЛЬНО в ту точку, которая ставится на холст.
-    const VISUAL_OFFSET = 150; 
+    // Константы позиционирования
+    const MAG_SIZE = 120;
+    const VISUAL_OFFSET = 150; // Расстояние от пальца до центра лупы по вертикали
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -151,13 +151,13 @@
     }
 
     function confirmDistance() {
-        const distVal = document.getElementById('dist-input').value;
         document.getElementById('dist-modal').style.display = 'none';
-        alert(`Масштаб сохранен: ${distVal} м`);
-        toggleScaleMode(); // Выходим из режима после установки
+        toggleScaleMode();
     }
 
+    // Возвращает координаты на холсте под перекрестием лупы
     function getPointerUnderCrosshair(clientX, clientY) {
+        // Вычитаем VISUAL_OFFSET, так как лупа выше пальца
         return canvas.getPointer({
             clientX: clientX,
             clientY: clientY - VISUAL_OFFSET
@@ -166,14 +166,15 @@
 
     function updateMagnifierUI(touch) {
         if (!isScaleMode || !touch || isMultiTouch) {
-            if(isMultiTouch) magWrap.style.display = 'none';
+            magWrap.style.display = 'none';
             return;
         }
 
-        // Выравнивание строго по пальцу по оси X и точный подъем по оси Y 
-        // для совпадения центра лупы с VISUAL_OFFSET
-        magWrap.style.left = `${touch.clientX}px`;
-        magWrap.style.top = `${touch.clientY - 88}px`; 
+        // 1. Позиционируем контейнер лупы ровно над пальцем
+        // Вычитаем MAG_SIZE/2 для центровки по X
+        // Вычитаем VISUAL_OFFSET + MAG_SIZE/2 для размещения центра лупы в целевой точке
+        magWrap.style.left = `${touch.clientX - MAG_SIZE/2}px`;
+        magWrap.style.top = `${touch.clientY - VISUAL_OFFSET - (MAG_SIZE/2) - 20}px`; // -20 для учета плашки hint
         magWrap.style.display = 'flex';
 
         if (rafId) cancelAnimationFrame(rafId);
@@ -184,15 +185,16 @@
             magCtx.save();
             magCtx.imageSmoothingEnabled = false;
             magCtx.fillStyle = "#111";
-            magCtx.fillRect(0, 0, 120, 120);
-            magCtx.translate(60, 60);
-            magCtx.scale(10 * zoom, 10 * zoom);
+            magCtx.fillRect(0, 0, MAG_SIZE, MAG_SIZE);
+            
+            // Центрируем отрисовку в лупе
+            magCtx.translate(MAG_SIZE/2, MAG_SIZE/2);
+            magCtx.scale(8 * zoom, 8 * zoom); // Зум 8x
             magCtx.translate(-ptr.x, -ptr.y);
             
-            const objects = canvas.getObjects();
-            for (let i = 0; i < objects.length; i++) {
-                objects[i].render(magCtx);
-            }
+            // Рендерим объекты канваса в контекст лупы
+            canvas.getObjects().forEach(obj => obj.render(magCtx));
+            
             magCtx.restore();
         });
     }
@@ -218,7 +220,7 @@
                     if (isMultiTouch) return;
                     const ptr = getPointerUnderCrosshair(touch.clientX, touch.clientY); 
                     const dot = new fabric.Circle({
-                        left: ptr.x, top: ptr.y, radius: 4/canvas.getZoom(),
+                        left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
                         fill: '#ff3b30', stroke: 'white', strokeWidth: 1/canvas.getZoom(),
                         originX: 'center', originY: 'center', selectable: false
                     });
@@ -245,7 +247,7 @@
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            canvas.zoomToPoint({ x: midX - 65, y: midY }, initialZoom * (dist / initialDist));
+            canvas.zoomToPoint({ x: midX, y: midY }, initialZoom * (dist / initialDist));
             const vpt = canvas.viewportTransform;
             vpt[4] += (midX - lastMidX); vpt[5] += (midY - lastMidY);
             canvas.requestRenderAll();
