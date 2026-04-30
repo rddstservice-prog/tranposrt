@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Beta v0.1.3</title>
+    <title>Beta v0.1.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 80px; --accent: #FF9800; }
@@ -27,13 +27,15 @@
         .menu-btn i { font-style: normal; font-size: 20px; margin-bottom: 3px; }
 
         #canvas-container { flex-grow: 1; position: relative; }
+        
+        /* ЛУПА ВЫШЕ ПАЛЬЦА */
         #magnifier {
-            position: absolute; width: 100px; height: 100px; border: 2px solid var(--accent);
+            position: absolute; width: 120px; height: 120px; border: 2px solid var(--accent);
             border-radius: 50%; pointer-events: none; display: none; z-index: 1000;
-            overflow: hidden; background: #000; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            overflow: hidden; background: #000; box-shadow: 0 8px 25px rgba(0,0,0,0.6);
         }
         #mag-canvas { width: 100%; height: 100%; }
-        .crosshair { position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; transform: translate(-50%, -50%); }
+        .crosshair { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); }
         .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--accent); }
         .crosshair::before { top: 50%; left: 0; width: 100%; height: 1px; }
         .crosshair::after { left: 50%; top: 0; height: 100%; width: 1px; }
@@ -48,16 +50,16 @@
 
 <div id="app">
     <aside id="sidebar">
-        <div class="version-label">v 0.1.3</div>
+        <div class="version-label">v 0.1.4</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🗺</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
 
     <main id="canvas-container">
-        <div id="hint">ЗАЖМИТЕ ДЛЯ ТОЧКИ</div>
+        <div id="hint">УДЕРЖИВАЙТЕ 1.5 СЕК</div>
         <div id="magnifier">
-            <canvas id="mag-canvas" width="100" height="100"></canvas>
+            <canvas id="mag-canvas" width="120" height="120"></canvas>
             <div class="crosshair"></div>
         </div>
         <canvas id="c"></canvas>
@@ -105,40 +107,30 @@
         canvas.renderAll();
     }
 
-    // --- ОБНОВЛЕННАЯ НАВИГАЦИЯ И ЛУПА ---
+    // --- ЛОГИКА УПРАВЛЕНИЯ v0.1.4 ---
     canvas.on('mouse:down', function(opt) {
         const e = opt.e;
         const touch = e.touches ? e.touches[0] : e;
         
-        // 1. Если два пальца - включаем перемещение, выключаем лупу
-        if (e.touches && e.touches.length > 1) {
-            this.isDragging = true;
-            this.lastPosX = touch.clientX;
-            this.lastPosY = touch.clientY;
-            magnifier.style.display = 'none';
-            clearTimeout(calTimer);
-            return;
-        }
+        // Перемещение доступно всегда
+        this.isDragging = true;
+        this.lastPosX = touch.clientX;
+        this.lastPosY = touch.clientY;
 
-        // 2. Если режим масштаба и один палец
-        if (isScaleMode) {
+        if (isScaleMode && (!e.touches || e.touches.length === 1)) {
             showMagnifier(touch);
             const ptr = canvas.getPointer(e);
+            // Точка через 1.5 секунды
             calTimer = setTimeout(() => {
                 const dot = new fabric.Circle({
-                    left: ptr.x, top: ptr.y, radius: 4/canvas.getZoom(), fill: 'red',
+                    left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(), fill: 'red',
                     stroke: 'white', strokeWidth: 1/canvas.getZoom(), originX: 'center', originY: 'center',
                     isCalDot: true, selectable: false
                 });
                 canvas.add(dot);
                 calPoints.push(ptr);
                 if (calPoints.length === 2) finishCalibration();
-            }, 800);
-        } else {
-            // Обычное перемещение одним пальцем, если не в режиме масштаба
-            this.isDragging = true;
-            this.lastPosX = touch.clientX;
-            this.lastPosY = touch.clientY;
+            }, 1500);
         }
     });
 
@@ -155,7 +147,7 @@
             this.lastPosY = touch.clientY;
         }
 
-        if (isScaleMode && !this.isDragging) {
+        if (isScaleMode && this.isDragging && (!e.touches || e.touches.length === 1)) {
             showMagnifier(touch);
         }
     });
@@ -166,9 +158,9 @@
         clearTimeout(calTimer);
     });
 
-    // Пинч-зум (двумя пальцами)
+    // Зум только в режиме масштаба
     canvas.on('touch:gesture', function(opt) {
-        if (opt.e.touches && opt.e.touches.length == 2) {
+        if (isScaleMode && opt.e.touches && opt.e.touches.length == 2) {
             let zoom = canvas.getZoom() * opt.self.scale;
             if (zoom > 20) zoom = 20; if (zoom < 0.01) zoom = 0.01;
             canvas.zoomToPoint({ x: opt.self.x, y: opt.self.y }, zoom);
@@ -179,12 +171,13 @@
     function showMagnifier(touch) {
         const ptr = canvas.getPointer(touch);
         magnifier.style.display = 'block';
-        magnifier.style.left = (touch.clientX - 50) + 'px';
-        magnifier.style.top = (touch.clientY - 150) + 'px';
+        // Центрируем над пальцем с выносом вверх
+        magnifier.style.left = (touch.clientX - 60) + 'px';
+        magnifier.style.top = (touch.clientY - 180) + 'px'; 
 
-        magCtx.clearRect(0, 0, 100, 100);
+        magCtx.clearRect(0, 0, 120, 120);
         magCtx.save();
-        magCtx.translate(50, 50);
+        magCtx.translate(60, 60);
         magCtx.scale(4, 4);
         magCtx.translate(-ptr.x, -ptr.y);
         canvas.renderCanvas(magCtx, canvas.getObjects());
