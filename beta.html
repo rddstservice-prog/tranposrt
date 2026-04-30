@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5 - Multitouch Fix</title>
+    <title>Mobile Beta v0.4.5 - Right Offset</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -164,8 +164,8 @@
 
         const containerRect = canvasContainer.getBoundingClientRect();
         
-        // Центр лупы левее пальца на половину диаметра
-        const centerScreenX = touch.clientX - MAG_SIZE/2;
+        // Центр лупы теперь ПРАВЕЕ пальца на половину диаметра
+        const centerScreenX = touch.clientX + MAG_SIZE/2;
         const centerScreenY = touch.clientY - VISUAL_OFFSET;
         
         const wrapX = centerScreenX - containerRect.left - MAG_SIZE/2;
@@ -217,7 +217,8 @@
                 clearTimeout(calTimer);
                 calTimer = setTimeout(() => {
                     if (isMultiTouch) return;
-                    const centerScreenX = touch.clientX - MAG_SIZE/2;
+                    // Точка ставится там же, где перекрестие — правее пальца на полдиаметра
+                    const centerScreenX = touch.clientX + MAG_SIZE/2;
                     const centerScreenY = touch.clientY - VISUAL_OFFSET;
                     const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
                     const dot = new fabric.Circle({
