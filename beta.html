@@ -3,127 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>HeavyTransport v0.1.0-beta</title>
-    
+    <title>Beta - Turn Simulation</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    
-   <style>
-    :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
-    * { box-sizing: border-box; -webkit-user-select: none; margin: 0; padding: 0; }
-    body { 
-        font-family: sans-serif; background: #000; color: white; 
-        display: flex; height: 100dvh; width: 100vw; overflow: hidden; 
-    }
-    #sidebar { 
-        width: 115px; min-width: 115px; background: #222; 
-        border-right: 1px solid var(--border); display: flex; 
-        flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 999; 
-        overflow-y: auto;
-    }
-    button { 
-        width: 100%; padding: 12px 2px; border: none; border-radius: 6px; 
-        font-size: 10px; font-weight: bold; cursor: pointer; color: white; 
-    }
-    .btn-blue { background: var(--blue); }
-    .btn-red { background: var(--red); }
-    #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
-    #c { touch-action: none; }
-    .overlay-msg { 
-        position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
-        background: rgba(0,0,0,0.85); padding: 10px 20px; border-radius: 25px; 
-        font-size: 11px; z-index: 100; display: none; border: 2px solid var(--blue); 
-    }
-</style>
+    <style>
+        :root {
+            --bg-dark: #1a1a1a;
+            --panel-bg: rgba(30, 30, 30, 0.9);
+            --accent: #2196F3;
+            --text: #ffffff;
+        }
+
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: var(--bg-dark);
+            color: var(--text);
+            font-family: -apple-system, system-ui, sans-serif;
+            overflow: hidden;
+        }
+
+        /* Контейнер приложения */
+        #app-wrapper {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* Боковое меню */
+        #side-menu {
+            width: 80px;
+            background: var(--panel-bg);
+            border-right: 1px solid #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 0;
+            z-index: 100;
+            gap: 15px;
+        }
+
+        .menu-item {
+            width: 60px;
+            height: 60px;
+            background: #333;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: 0.2s;
+        }
+
+        .menu-item:active {
+            transform: scale(0.9);
+            background: var(--accent);
+        }
+
+        .menu-item i {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        .menu-item span {
+            font-size: 8px;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        /* Область холста */
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background-image: 
+                radial-gradient(#333 1px, transparent 1px);
+            background-size: 20px 20px; /* Сетка */
+        }
+
+        canvas {
+            touch-action: none;
+        }
+
+        /* Информационная панель сверху */
+        #status-bar {
+            position: absolute;
+            top: 10px;
+            left: 90px;
+            background: var(--panel-bg);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            pointer-events: none;
+            border: 1px solid #444;
+        }
+    </style>
 </head>
 <body>
 
-<div id="hub-screen">
-    <button class="btn-blue" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
-</div>
+<div id="app-wrapper">
+    <!-- Боковое меню -->
+    <nav id="side-menu">
+        <div class="menu-item" onclick="addTruck()">
+            <i>🚛</i>
+            <span>Тягач</span>
+        </div>
+        <div class="menu-item" onclick="addModule()">
+            <i>📟</i>
+            <span>Модуль</span>
+        </div>
+        <div class="menu-item" onclick="addGooseneck()">
+            <i>🦢</i>
+            <span>Гусек</span>
+        </div>
+        <div class="menu-item" onclick="addBeam()">
+            <i>➖</i>
+            <span>Балка</span>
+        </div>
+        <div style="flex-grow: 1;"></div> <!-- Распорка -->
+        <div class="menu-item" onclick="history.back()" style="background: #442222;">
+            <i>🏠</i>
+            <span>Хаб</span>
+        </div>
+    </nav>
 
-<div id="main-app" style="display:none; width: 100%; height: 100%;">
-    <div id="sidebar">
-        <button class="btn-blue" onclick="document.getElementById('file-input').click()">🗺 КАРТА</button>
-        <button class="btn-blue" id="cal-btn" onclick="toggleCalibration()">📏 МАСШТАБ</button>
-        <button class="btn-red" onclick="addVehicle('Тягач', 7.8, 2.5, 'white', 5.55, 'truck')">ТЯГАЧ</button>
-        <button class="btn-red" onclick="addCargo()">📦 ГРУЗ</button>
-    </div>
-    <input type="file" id="file-input" style="display:none" onchange="loadMap(event)">
-    <div id="canvas-wrap">
-        <div id="cal-msg" class="overlay-msg">УДЕРЖИВАЙТЕ 1 СЕК</div>
-        <canvas id="c"></canvas>
-    </div>
+    <!-- Основная рабочая зона -->
+    <main id="canvas-container">
+        <div id="status-bar">Режим: Ожидание | Масштаб 1:100</div>
+        <canvas id="mainCanvas"></canvas>
+    </main>
 </div>
 
 <script>
-const canvas = new fabric.Canvas('c', { 
-    selection: false, 
-    allowTouchScrolling: false,
-    imageSmoothingEnabled: false 
-});
-
-let PX_METER = 40, isCalibrating = false, calPoints = [];
-let isDraggingCanvas = false, lastPosX, lastPosY, rotationTarget = null;
-
-// Инициализация касания (mouseDown)
-canvas.on('mouse:down', function(opt) {
-    const evt = opt.e;
-    const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-    const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-    const ptr = canvas.getPointer(evt);
-    
-    lastPosX = cX; lastPosY = cY;
-
-    if (opt.target && opt.target.type === 'handle') {
-        rotationTarget = opt.target.handleType;
-        return;
+    const tg = window.Telegram?.WebApp;
+    if (tg) {
+        tg.expand();
+        tg.ready();
     }
 
-    if (!opt.target && !isCalibrating) {
-        isDraggingCanvas = true;
-    }
-});
-
-// Движение пальцем (mouseMove)
-canvas.on('mouse:move', function(opt) {
-    const evt = opt.e;
-    const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-    const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-
-    if (isDraggingCanvas) {
-        const vpt = canvas.viewportTransform;
-        vpt[4] += cX - lastPosX;
-        vpt[5] += cY - lastPosY;
-        canvas.requestRenderAll();
-    }
-    lastPosX = cX; lastPosY = cY;
-});
-
-// Завершение касания
-canvas.on('mouse:up', () => {
-    isDraggingCanvas = false;
-    rotationTarget = null;
-});
-
-// Зум (работает от колесика или щипка на некоторых тачпадах)
-canvas.on('mouse:wheel', function(opt) {
-    let delta = opt.e.deltaY;
-    let zoom = canvas.getZoom() * (0.999 ** delta);
-    if (zoom > 20) zoom = 20;
-    if (zoom < 0.01) zoom = 0.01;
-    canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-    opt.e.preventDefault();
-});
-
-function startEditor() {
-    document.getElementById('hub-screen').style.display = 'none';
-    document.getElementById('main-app').style.display = 'flex';
-    canvas.setDimensions({ 
-        width: document.getElementById('canvas-wrap').clientWidth, 
-        height: document.getElementById('canvas-wrap').clientHeight 
+    const canvas = new fabric.Canvas('mainCanvas', {
+        width: window.innerWidth - 80,
+        height: window.innerHeight,
+        selection: false,
+        backgroundColor: 'transparent'
     });
-}
+
+    // Ресайз при повороте экрана
+    window.addEventListener('resize', () => {
+        canvas.setDimensions({
+            width: window.innerWidth - 80,
+            height: window.innerHeight
+        });
+    });
+
+    // Заглушки функций для кнопок
+    function addTruck() {
+        console.log("Добавление тягача...");
+        const truck = new fabric.Rect({
+            left: 100, top: 100, width: 60, height: 25,
+            fill: '#2196F3', stroke: 'white', rx: 5
+        });
+        canvas.add(truck);
+        updateStatus("Тягач добавлен");
+    }
+
+    function addModule() {
+        console.log("Добавление модуля Goldhofer...");
+        const mod = new fabric.Rect({
+            left: 150, top: 150, width: 80, height: 30,
+            fill: '#FF9800', stroke: 'white'
+        });
+        canvas.add(mod);
+        updateStatus("Модуль Goldhofer добавлен");
+    }
+
+    function addGooseneck() {
+        updateStatus("Выбран Гусек");
+    }
+
+    function addBeam() {
+        updateStatus("Выбрана Балка/Постель");
+    }
+
+    function updateStatus(text) {
+        document.getElementById('status-bar').innerText = `Режим: ${text}`;
+    }
+
+    // Базовое перемещение холста пальцем
+    let isDragging = false;
+    let lastX, lastY;
+
+    canvas.on('mouse:down', (opt) => {
+        if (!opt.target) {
+            isDragging = true;
+            lastX = opt.e.touches ? opt.e.touches[0].clientX : opt.e.clientX;
+            lastY = opt.e.touches ? opt.e.touches[0].clientY : opt.e.clientY;
+        }
+    });
+
+    canvas.on('mouse:move', (opt) => {
+        if (isDragging) {
+            const e = opt.e;
+            const nowX = e.touches ? e.touches[0].clientX : e.clientX;
+            const nowY = e.touches ? e.touches[0].clientY : e.clientY;
+            const vpt = canvas.viewportTransform;
+            vpt[4] += nowX - lastX;
+            vpt[5] += nowY - lastY;
+            canvas.requestRenderAll();
+            lastX = nowX;
+            lastY = nowY;
+        }
+    });
+
+    canvas.on('mouse:up', () => isDragging = false);
+
 </script>
+
 </body>
 </html>
