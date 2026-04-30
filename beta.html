@@ -72,7 +72,8 @@
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch; 
             padding-top: env(safe-area-inset-top); 
-            height: 100vh; 
+            height: 100%; /* Было 100vh */
+            touch-action: pan-y; /* Добавили разрешение на вертикальный скролл */
         }
 
         #sidebar::-webkit-scrollbar { width: 4px; }
@@ -100,7 +101,7 @@
 
 <div id="hub-screen">
     <div class="version-badge">v0.1.0-beta</div>
-    <div class="build-info">HEAVY TRANSPORT | BUILD 2026-04-30</div>
+    <div class="build-info">HEAVY TRANSPORT | BUILD  09-47  </div>
     <button class="btn-start" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
