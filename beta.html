@@ -25,21 +25,36 @@
             position: fixed; 
         }
         
+        /* Экран входа */
         #hub-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 1000; display: flex; flex-direction: column;
             align-items: center; justify-content: center; padding: 20px;
         }
-        .hub-title { font-size: 18px; font-weight: bold; margin-bottom: 30px; color: var(--blue); text-transform: uppercase; letter-spacing: 2px; }
-        .hub-grid { display: grid; grid-template-columns: 1fr; gap: 15px; width: 100%; max-width: 300px; }
-        .hub-card {
-            background: #222; border: 2px solid var(--border); padding: 20px; border-radius: 12px;
-            text-align: center; cursor: pointer; transition: 0.2s;
+        .version-badge { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: var(--blue); 
+            margin-bottom: 10px; 
         }
-        .hub-card:active { transform: scale(0.95); border-color: var(--blue); }
-        .hub-card h3 { margin: 0 0 5px 0; font-size: 14px; }
-        .hub-card p { margin: 0; font-size: 10px; color: #777; }
-        .hub-card.locked { opacity: 0.5; border-style: dashed; }
+        .build-info {
+            font-size: 12px;
+            color: #777;
+            margin-bottom: 40px;
+            letter-spacing: 1px;
+        }
+        .btn-start {
+            background: var(--blue);
+            color: white;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-weight: bold;
+            text-transform: uppercase;
+            border: none;
+            cursor: pointer;
+            width: auto;
+            font-size: 16px;
+        }
 
         #main-app { display: none; width: 100%; height: 100%; }
         
@@ -53,24 +68,15 @@
             padding: 10px 5px; 
             gap: 8px; 
             z-index: 50; 
-            
-            /* Новые свойства для плавной прокрутки */
             overflow-y: auto; 
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch; 
-            
             padding-top: env(safe-area-inset-top); 
-            height: 100vh; /* Фиксируем высоту для активации скролла */
+            height: 100vh; 
         }
 
-        /* Скрываем полосу прокрутки для эстетики, если нужно */
-        #sidebar::-webkit-scrollbar {
-            width: 4px;
-        }
-        #sidebar::-webkit-scrollbar-thumb {
-            background: var(--border);
-            border-radius: 2px;
-        }
+        #sidebar::-webkit-scrollbar { width: 4px; }
+        #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
         
         button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
         .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
@@ -93,17 +99,9 @@
 <body>
 
 <div id="hub-screen">
-    <div class="hub-title">Выберите редактор</div>
-    <div class="hub-grid">
-        <div class="hub-card" onclick="startEditor('truck-goose')">
-            <h3>🚛 Тягач + Гусь</h3>
-            <p>Модульные перевозки THP</p>
-        </div>
-        <div class="hub-card locked">
-            <h3>🏗 Спецтехника</h3>
-            <p>Скоро добавится</p>
-        </div>
-    </div>
+    <div class="version-badge">v0.1.0-beta</div>
+    <div class="build-info">HEAVY TRANSPORT | BUILD 2026-04-30</div>
+    <button class="btn-start" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
 <div id="main-app">
@@ -156,20 +154,17 @@
     const tg = window.Telegram?.WebApp; 
     if(tg) { tg.expand(); tg.ready(); }
 
-    function startEditor(type) {
-        if(type === 'truck-goose') {
-            document.getElementById('hub-screen').style.display = 'none';
-            document.getElementById('main-app').style.display = 'flex';
-            
-            // Исправленное место: безопасно обращаемся к элементу после его показа
-            setTimeout(() => {
-                const currentWrap = document.getElementById('canvas-wrap');
-                if (canvas && currentWrap) {
-                    canvas.setDimensions({ width: currentWrap.clientWidth, height: currentWrap.clientHeight });
-                    canvas.requestRenderAll();
-                }
-            }, 50);
-        }
+    function startEditor() {
+        document.getElementById('hub-screen').style.display = 'none';
+        document.getElementById('main-app').style.display = 'flex';
+        
+        setTimeout(() => {
+            const currentWrap = document.getElementById('canvas-wrap');
+            if (canvas && currentWrap) {
+                canvas.setDimensions({ width: currentWrap.clientWidth, height: currentWrap.clientHeight });
+                canvas.requestRenderAll();
+            }
+        }, 50);
     }
 
     window.oncontextmenu = function(e) { e.preventDefault(); return false; };
@@ -459,7 +454,6 @@
         } else if (t === 'truck') {
             const tL = l * 40, tW = w * 40, wL = 1.12 * 40, axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
             const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
-            const colorSecondary = 'white'; 
             const fanBoxSize = instL * 0.85, fanCX = cabL + instL / 2, fanR = (fanBoxSize * 0.8) / 2;
             
             const fanElements = [
