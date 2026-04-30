@@ -95,6 +95,7 @@
 </div>
 
 <script>
+    const canvasContainer = document.getElementById('canvas-container');
     const canvas = new fabric.Canvas('c', {
         width: window.innerWidth - 65,
         height: window.innerHeight,
@@ -116,8 +117,9 @@
     let rafId = null;
 
     // Константы
-    const MAG_SIZE = 120;
-    const VISUAL_OFFSET = 150; // Расстояние от пальца до ЦЕНТРА лупы
+    const MAG_SIZE = 120;          // диаметр лупы
+    const VISUAL_OFFSET = 150;     // расстояние от пальца до центра лупы по вертикали
+    const HINT_HEIGHT = 30;        // примерная высота блока с подсказкой (с margin)
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -150,12 +152,9 @@
         toggleScaleMode();
     }
 
-    // Возвращает координаты на канвасе, соответствующие центру лупы (перекрестию)
-    function getPointerUnderMagnifier(clientX, clientY) {
-        return canvas.getPointer({
-            clientX: clientX,
-            clientY: clientY - VISUAL_OFFSET
-        });
+    // Вспомогательная функция: экранные координаты центра лупы → координаты на канвасе
+    function canvasPointFromScreen(screenX, screenY) {
+        return canvas.getPointer({ clientX: screenX, clientY: screenY });
     }
 
     function updateMagnifierUI(touch) {
@@ -164,20 +163,25 @@
             return;
         }
 
-        // Смещаем лупу левее: центр лупы теперь левее пальца на половину диаметра (MAG_SIZE/2)
-        // Было: wrapX = touch.clientX - MAG_SIZE/2 (центр над пальцем)
-        // Стало: wrapX = touch.clientX - MAG_SIZE (центр левее пальца на MAG_SIZE/2)
-        const wrapX = touch.clientX - MAG_SIZE;
-        const wrapY = touch.clientY - VISUAL_OFFSET - (MAG_SIZE/2) - 30;
-
+        const containerRect = canvasContainer.getBoundingClientRect();
+        
+        // Центр лупы по горизонтали: левее пальца на половину диаметра
+        const centerScreenX = touch.clientX - MAG_SIZE/2;
+        // Центр лупы по вертикали: выше пальца на VISUAL_OFFSET
+        const centerScreenY = touch.clientY - VISUAL_OFFSET;
+        
+        // Позиционируем контейнер magnifier-wrap относительно canvas-container
+        const wrapX = centerScreenX - containerRect.left - MAG_SIZE/2;
+        const wrapY = centerScreenY - containerRect.top - HINT_HEIGHT - MAG_SIZE/2;
+        
         magWrap.style.left = `${wrapX}px`;
         magWrap.style.top = `${wrapY}px`;
         magWrap.style.display = 'flex';
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-            // Точка под перекрестием теперь левее пальца на полдиаметра
-            const ptr = getPointerUnderMagnifier(touch.clientX - MAG_SIZE/2, touch.clientY);
+            // Точка на канвасе, которая находится под перекрестием
+            const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
             const zoom = canvas.getZoom();
             
             magCtx.save();
@@ -186,7 +190,7 @@
             magCtx.fillRect(0, 0, MAG_SIZE, MAG_SIZE);
             
             magCtx.translate(MAG_SIZE/2, MAG_SIZE/2);
-            magCtx.scale(8 * zoom, 8 * zoom); 
+            magCtx.scale(8 * zoom, 8 * zoom);
             magCtx.translate(-ptr.x, -ptr.y);
             
             canvas.getObjects().forEach(obj => {
@@ -216,8 +220,9 @@
                 clearTimeout(calTimer);
                 calTimer = setTimeout(() => {
                     if (isMultiTouch) return;
-                    // Точка ставится туда, где сейчас перекрестие (левее пальца)
-                    const ptr = getPointerUnderMagnifier(touch.clientX - MAG_SIZE/2, touch.clientY);
+                    const centerScreenX = touch.clientX - MAG_SIZE/2;
+                    const centerScreenY = touch.clientY - VISUAL_OFFSET;
+                    const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
                     const dot = new fabric.Circle({
                         left: ptr.x, top: ptr.y, radius: 6/canvas.getZoom(),
                         fill: '#ff3b30', stroke: 'white', strokeWidth: 2/canvas.getZoom(),
