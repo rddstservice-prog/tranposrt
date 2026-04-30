@@ -3,81 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.2.4</title>
+    <title>Mobile Beta v0.2.6</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 70px; --accent: #FF9800; }
         body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; touch-action: none; }
         #app { display: flex; width: 100vw; height: 100vh; }
-        
-        /* Боковая панель */
         #sidebar { width: var(--menu-w); background: #252525; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 10px 4px; gap: 10px; z-index: 100; align-items: center; }
         .menu-btn { width: 90%; aspect-ratio: 1/1; background: #333; border: 1px solid #444; border-radius: 12px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; -webkit-tap-highlight-color: transparent; }
         .menu-btn.active { border-color: var(--accent); background: rgba(255, 152, 0, 0.2); color: var(--accent); }
-
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
-
-        /* Фиксированная лупа сверху */
-        #magnifier { 
-            position: absolute; 
-            top: 20px; 
-            left: 50%; 
-            transform: translateX(-50%); 
-            width: 180px; 
-            height: 180px; 
-            border: 3px solid var(--accent); 
-            border-radius: 20px; /* Сделал квадратной со скруглением для большего обзора */
-            pointer-events: none; 
-            display: none; 
-            z-index: 1000; 
-            overflow: hidden; 
-            background: #111; 
-            box-shadow: 0 10px 40px rgba(0,0,0,0.9); 
-        }
+        #magnifier { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 180px; height: 180px; border: 3px solid var(--accent); border-radius: 20px; pointer-events: none; display: none; z-index: 1000; overflow: hidden; background: #111; box-shadow: 0 10px 40px rgba(0,0,0,0.9); }
         #mag-canvas { width: 100%; height: 100%; }
-
-        /* Перекрестие в лупе */
-        .crosshair { 
-            position: absolute; 
-            top: 50%; 
-            left: 50%; 
-            width: 100%; 
-            height: 100%; 
-            transform: translate(-50%, -50%); 
-        }
+        .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
         .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: rgba(255, 152, 0, 0.7); }
         .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: rgba(255, 152, 0, 0.7); }
         .cross-dot { position: absolute; top: 50%; left: 50%; width: 4px; height: 4px; background: white; border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 5px black; }
-
-        /* Подсказка сверху */
-        #hint { 
-            position: absolute; 
-            top: 210px; /* Сразу под лупой */
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: rgba(0,0,0,0.8); 
-            color: var(--accent); 
-            padding: 8px 16px; 
-            border-radius: 20px; 
-            font-size: 12px; 
-            font-weight: bold; 
-            display: none; 
-            z-index: 100; 
-            white-space: nowrap;
-            border: 1px solid var(--accent);
-        }
+        #hint { position: absolute; top: 210px; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,0.8); color: var(--accent); padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: bold; display: none; z-index: 100; white-space: nowrap; border: 1px solid var(--accent); }
     </style>
 </head>
 <body>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 9px; opacity: 0.3;">v0.2.4</div>
+        <div style="font-size: 9px; opacity: 0.3;">v0.2.6</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
     <main id="canvas-container">
-        <div id="hint">ЗАЖМИТЕ ДЛЯ ПЕРВОЙ ТОЧКИ</div>
+        <div id="hint">УДЕРЖИВАЙТЕ ДЛЯ ТОЧКИ</div>
         <div id="magnifier">
             <canvas id="mag-canvas" width="180" height="180"></canvas>
             <div class="crosshair"><div class="cross-dot"></div></div>
@@ -101,6 +55,7 @@
 
     let isScaleMode = false, calPoints = [], calTimer = null;
     let initialDist = 0, initialZoom = 1;
+    let touchStartX = 0, touchStartY = 0;
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -121,55 +76,51 @@
         isScaleMode = !isScaleMode;
         document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
         hint.style.display = isScaleMode ? 'block' : 'none';
-        
         if (!isScaleMode) { 
             calPoints = []; 
             canvas.getObjects('circle').forEach(o => canvas.remove(o)); 
         } else {
-            hint.innerText = "ЗАЖМИТЕ ДЛЯ ПЕРВОЙ ТОЧКИ";
+            hint.innerText = "ЗАЖМИТЕ ДЛЯ 1-Й ТОЧКИ";
         }
         canvas.renderAll();
     }
 
-    // Рендерим содержимое канваса в лупу
     function updateMagnifier(touch) {
+        if (!touch) return;
         const ptr = canvas.getPointer(touch);
         const zoom = canvas.getZoom();
         magnifier.style.display = 'block';
-        
         magCtx.save();
         magCtx.fillStyle = "#111";
         magCtx.fillRect(0, 0, 180, 180);
-        
-        magCtx.translate(90, 90); // Центр лупы
-        // Масштаб в лупе (8x относительно текущего зума)
+        magCtx.translate(90, 90);
         magCtx.scale(8 * zoom, 8 * zoom); 
         magCtx.translate(-ptr.x, -ptr.y);
-        
-        // Рендерим всё: и карту, и точки
         canvas.renderCanvas(magCtx, canvas.getObjects());
         magCtx.restore();
     }
 
-    function getDist(t) { return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY); }
-    function getMid(t) { return { x: (t[0].clientX + t[1].clientX)/2 - 70, y: (t[0].clientY + t[1].clientY)/2 }; }
+    const getDist = (t) => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    const getMid = (t) => ({ x: (t[0].clientX + t[1].clientX)/2 - 70, y: (t[0].clientY + t[1].clientY)/2 });
 
-    // --- ОБРАБОТКА ТАЧЕЙ ---
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
+            // Мгновенно отменяем установку точки, если пошел зум
+            clearTimeout(calTimer);
             initialDist = getDist(e.touches);
             initialZoom = canvas.getZoom();
-            clearTimeout(calTimer);
+            magnifier.style.display = 'none';
         } else if (e.touches.length === 1) {
             const touch = e.touches[0];
             canvas.isDragging = true;
             canvas.lastPosX = touch.clientX;
             canvas.lastPosY = touch.clientY;
+            touchStartX = touch.clientX;
+            touchStartY = touch.clientY;
 
             if (isScaleMode) {
                 updateMagnifier(touch);
                 const ptr = canvas.getPointer(touch);
-                
                 clearTimeout(calTimer);
                 calTimer = setTimeout(() => {
                     const dot = new fabric.Circle({
@@ -178,15 +129,14 @@
                         originX: 'center', originY: 'center', selectable: false
                     });
                     canvas.add(dot).renderAll();
-                    updateMagnifier(touch); // Обновляем лупу, чтобы увидеть точку
-                    
+                    updateMagnifier(touch);
                     calPoints.push({...ptr});
-                    if (calPoints.length === 1) hint.innerText = "ЗАЖМИТЕ ДЛЯ ВТОРОЙ ТОЧКИ";
+                    if (calPoints.length === 1) hint.innerText = "ЗАЖМИТЕ ДЛЯ 2-Й ТОЧКИ";
                     if (calPoints.length === 2) {
                         alert("📏 МАСШТАБ УСТАНОВЛЕН");
                         toggleScaleMode();
                     }
-                }, 1100);
+                }, 1000);
             }
         }
     }, { passive: false });
@@ -196,11 +146,17 @@
             const currentDist = getDist(e.touches);
             const mid = getMid(e.touches);
             let zoom = initialZoom * (currentDist / initialDist);
-            zoom = Math.min(Math.max(zoom, 0.05), 30);
+            zoom = Math.min(Math.max(zoom, 0.05), 40);
             canvas.zoomToPoint(mid, zoom);
             canvas.renderAll();
         } else if (e.touches.length === 1 && canvas.isDragging) {
             const touch = e.touches[0];
+            
+            // Если палец сдвинулся более чем на 10px, сбрасываем таймер точки (защита от случайных точек при движении)
+            if (Math.hypot(touch.clientX - touchStartX, touch.clientY - touchStartY) > 10) {
+                clearTimeout(calTimer);
+            }
+
             const vpt = canvas.viewportTransform;
             vpt[4] += touch.clientX - canvas.lastPosX;
             vpt[5] += touch.clientY - canvas.lastPosY;
