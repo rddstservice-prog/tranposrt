@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Beta - Map & Scale</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <title>Beta - Precision Scale</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        :root { --bg: #1a1a1a; --menu-w: 90px; --accent: #FF9800; --blue: #2196F3; }
+        :root { --bg: #1a1a1a; --menu-w: 90px; --accent: #FF9800; }
         body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; }
         #app { display: flex; width: 100vw; height: 100vh; }
 
@@ -20,38 +19,40 @@
         .menu-btn {
             width: 100%; aspect-ratio: 1 / 1; background: #333; border: 1px solid #444;
             border-radius: 12px; color: white; display: flex; flex-direction: column;
-            align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
+            align-items: center; justify-content: center; font-size: 10px; font-weight: bold; transition: 0.2s;
         }
-        .menu-btn:active { background: #444; }
-        .menu-btn.active { border-color: var(--accent); color: var(--accent); }
+        
+        /* Подсветка активной кнопки */
+        .menu-btn.active { 
+            border-color: var(--accent); 
+            background: rgba(255, 152, 0, 0.2); 
+            color: var(--accent); 
+            box-shadow: 0 0 15px rgba(255, 152, 0, 0.4);
+        }
         .menu-btn i { font-style: normal; font-size: 24px; margin-bottom: 5px; }
 
-        /* Холст и доп. элементы */
-        #canvas-container { flex-grow: 1; position: relative; overflow: hidden; }
-        canvas { touch-action: none; }
-
+        #canvas-container { flex-grow: 1; position: relative; overflow: hidden; background: #222; }
+        
         /* Лупа */
         #magnifier {
-            position: absolute; width: 150px; height: 150px; border: 2px solid var(--accent);
-            border-radius: 50%; pointer-events: none; display: none; z-index: 100;
-            overflow: hidden; background: #000; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            position: absolute; width: 160px; height: 160px; border: 3px solid var(--accent);
+            border-radius: 50%; pointer-events: none; display: none; z-index: 1000;
+            overflow: hidden; background: #000; box-shadow: 0 0 25px rgba(0,0,0,0.8);
         }
         #mag-canvas { width: 100%; height: 100%; }
+        
         .crosshair {
-            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            position: absolute; top: 50%; left: 50%; width: 30px; height: 30px;
             transform: translate(-50%, -50%); pointer-events: none;
         }
-        .crosshair::before, .crosshair::after {
-            content: ''; position: absolute; background: var(--accent);
-        }
+        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--accent); }
         .crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; margin-top: -1px; }
         .crosshair::after { left: 50%; top: 0; height: 100%; width: 2px; margin-left: -1px; }
 
-        /* Подсказка */
         #hint {
             position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
-            background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 20px;
-            font-size: 12px; border: 1px solid var(--accent); display: none; z-index: 100;
+            background: rgba(255, 152, 0, 0.9); color: black; padding: 8px 20px; 
+            border-radius: 20px; font-size: 13px; font-weight: bold; display: none; z-index: 100;
         }
     </style>
 </head>
@@ -68,10 +69,10 @@
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
 
-    <main id="canvas-container" id="main-area">
-        <div id="hint">УДЕРЖИВАЙТЕ 1 СЕК</div>
+    <main id="canvas-container">
+        <div id="hint">УДЕРЖИВАЙТЕ 1 СЕК ДЛЯ ТОЧКИ</div>
         <div id="magnifier">
-            <canvas id="mag-canvas" width="150" height="150"></canvas>
+            <canvas id="mag-canvas" width="160" height="160"></canvas>
             <div class="crosshair"></div>
         </div>
         <canvas id="c"></canvas>
@@ -83,43 +84,36 @@
         width: window.innerWidth - 90,
         height: window.innerHeight,
         backgroundColor: '#222',
-        selection: false
+        selection: false,
+        skipTargetFind: true // Чтобы клики не перехватывались объектами в режиме масштаба
     });
 
     const magCanvas = document.getElementById('mag-canvas');
     const magCtx = magCanvas.getContext('2d');
     const magnifier = document.getElementById('magnifier');
     const hint = document.getElementById('hint');
+    const scaleBtn = document.getElementById('scale-btn');
 
-    let PX_METER = 1; // Пикселей в 1 метре
+    let PX_METER = 1;
     let isScaleMode = false;
     let calPoints = [];
     let calTimer = null;
 
-    // --- ФУНКЦИЯ КАРТЫ ---
+    // Загрузка карты
     function handleMapUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (f) => {
             fabric.Image.fromURL(f.target.result, (img) => {
-                // Удаляем старую карту если есть
                 canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
-                
                 img.set({
-                    left: canvas.width / 2,
-                    top: canvas.height / 2,
-                    originX: 'center',
-                    originY: 'center',
-                    selectable: false,
-                    evented: false,
-                    type: 'map'
+                    left: canvas.width / 2, top: canvas.height / 2,
+                    originX: 'center', originY: 'center',
+                    selectable: false, evented: false, type: 'map'
                 });
-                
-                // Масштабируем карту, чтобы она вписалась в экран при загрузке
                 const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
                 img.scale(scale);
-                
                 canvas.add(img);
                 img.sendToBack();
                 canvas.renderAll();
@@ -128,29 +122,43 @@
         reader.readAsDataURL(file);
     }
 
-    // --- ФУНКЦИЯ МАСШТАБА ---
+    // Режим масштаба
     function toggleScaleMode() {
         isScaleMode = !isScaleMode;
-        calPoints = [];
-        document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
+        scaleBtn.classList.toggle('active', isScaleMode);
         hint.style.display = isScaleMode ? 'block' : 'none';
+        
+        if (!isScaleMode) {
+            // Очищаем точки, если вышли из режима принудительно
+            clearCalPoints();
+        } else {
+            calPoints = [];
+        }
+    }
+
+    function clearCalPoints() {
         canvas.getObjects().filter(o => o.isCalDot).forEach(d => canvas.remove(d));
+        canvas.renderAll();
     }
 
     canvas.on('mouse:down', (opt) => {
         if (!isScaleMode) return;
         
         const ptr = canvas.getPointer(opt.e);
+        
         calTimer = setTimeout(() => {
             const dot = new fabric.Circle({
-                left: ptr.x, top: ptr.y, radius: 5, fill: 'red',
-                originX: 'center', originY: 'center', isCalDot: true, selectable: false
+                left: ptr.x, top: ptr.y, radius: 4, fill: 'red',
+                stroke: 'white', strokeWidth: 1,
+                originX: 'center', originY: 'center',
+                isCalDot: true, selectable: false, evented: false
             });
             canvas.add(dot);
             calPoints.push(ptr);
+            canvas.renderAll();
 
             if (calPoints.length === 2) {
-                finishCalibration();
+                setTimeout(finishCalibration, 200);
             }
         }, 1000);
     });
@@ -158,20 +166,15 @@
     canvas.on('mouse:move', (opt) => {
         if (!isScaleMode) return;
         const ptr = canvas.getPointer(opt.e);
-        
-        // Показываем лупу
-        magnifier.style.display = 'block';
-        magnifier.style.left = (opt.e.clientX - 160) + 'px'; // Смещение чтобы палец не закрывал
-        magnifier.style.top = (opt.e.clientY - 160) + 'px';
+        const e = opt.e.touches ? opt.e.touches[0] : opt.e;
 
-        // Отрисовка в лупе
-        magCtx.clearRect(0, 0, 150, 150);
-        magCtx.save();
-        magCtx.translate(75, 75);
-        magCtx.scale(3, 3); // Увеличение в 3 раза
-        magCtx.translate(-ptr.x, -ptr.y);
-        canvas.renderCanvas(magCtx, canvas.getObjects());
-        magCtx.restore();
+        // Позиционирование лупы (чуть выше пальца)
+        magnifier.style.display = 'block';
+        magnifier.style.left = (e.clientX - 80) + 'px';
+        magnifier.style.top = (e.clientY - 180) + 'px';
+
+        // Рендерим содержимое холста в лупу
+        updateMagnifier(ptr);
     });
 
     canvas.on('mouse:up', () => {
@@ -179,15 +182,26 @@
         magnifier.style.display = 'none';
     });
 
+    function updateMagnifier(ptr) {
+        magCtx.clearRect(0, 0, 160, 160);
+        magCtx.save();
+        magCtx.translate(80, 80);
+        magCtx.scale(3, 3); // Зум х3
+        magCtx.translate(-ptr.x, -ptr.y);
+        canvas.renderCanvas(magCtx, canvas.getObjects());
+        magCtx.restore();
+    }
+
     function finishCalibration() {
         const distPx = Math.hypot(calPoints[1].x - calPoints[0].x, calPoints[1].y - calPoints[0].y);
-        const meters = prompt("Введите расстояние между точками (метров):", "100");
+        const meters = prompt("Расстояние между точками (метров):", "100");
         
         if (meters && parseFloat(meters) > 0) {
             PX_METER = distPx / parseFloat(meters);
-            alert(`Масштаб установлен: 1м = ${PX_METER.toFixed(2)}px`);
+            alert(`Готово! 1 метр = ${PX_METER.toFixed(2)} px`);
         }
         
+        clearCalPoints();
         toggleScaleMode();
     }
 
