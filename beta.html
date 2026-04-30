@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5</title>
+    <title>Mobile Beta v0.5.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -21,41 +21,72 @@
             pointer-events: none;
             display: none;
             z-index: 1000;
-            flex-direction: column;
+            flex-direction: column; /* Надпись сверху */
             align-items: center;
             transform: translate(-50%, -100%);
             will-change: transform, left, top;
         }
 
         #magnifier { 
-            width: 120px; height: 120px; /* Уменьшено почти в 2 раза */
+            width: 120px; height: 120px; 
             border: 2px solid var(--accent); 
             border-radius: 50%; 
             overflow: hidden; 
             background: #111; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             position: relative;
+            order: 2; /* Линза под надписью */
         }
 
         #hint { 
             background: var(--accent); color: #000; 
             padding: 3px 8px; border-radius: 4px; 
-            font-size: 9px; font-weight: 900; 
-            margin-top: 12px; white-space: nowrap;
+            font-size: 10px; font-weight: 900; 
+            margin-bottom: 12px; /* Отступ вниз к линзе */
+            white-space: nowrap;
             box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+            order: 1;
         }
 
         #mag-canvas { width: 100%; height: 100%; }
 
         .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
-        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: var(--accent); opacity: 0.6; }
-        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--accent); opacity: 0.6; }
+        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: var(--accent); opacity: 0.8; }
+        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--accent); opacity: 0.8; }
+
+        /* Диалоговое окно */
+        #modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 2000;
+            display: none; justify-content: center; align-items: center;
+        }
+        .modal {
+            background: #252525; padding: 20px; border-radius: 15px;
+            border: 1px solid var(--accent); text-align: center; width: 200px;
+        }
+        .modal input {
+            width: 80%; background: #333; border: 1px solid #555;
+            color: white; padding: 10px; margin: 15px 0; border-radius: 8px;
+            text-align: center; font-size: 18px;
+        }
+        .modal button {
+            background: var(--accent); border: none; color: black;
+            padding: 10px 20px; border-radius: 8px; font-weight: bold; width: 100%;
+        }
     </style>
 </head>
 <body>
+<div id="modal-overlay">
+    <div class="modal">
+        <div style="font-size: 12px; margin-bottom: 5px;">Расстояние (метры)</div>
+        <input type="number" id="dist-input" value="100">
+        <button onclick="confirmScale()">ПРИНЯТЬ ✓</button>
+    </div>
+</div>
+
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 8px; opacity: 0.3;">v0.4.5</div>
+        <div style="font-size: 8px; opacity: 0.3;">v0.5.0</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -85,16 +116,16 @@
     const magCanvasEl = document.getElementById('mag-canvas');
     const magCtx = magCanvasEl.getContext('2d', { alpha: false });
     const hint = document.getElementById('hint');
+    const modal = document.getElementById('modal-overlay');
 
     let isScaleMode = false, calPoints = [], calTimer = null;
     let initialDist = 0, initialZoom = 1;
     let lastX = 0, lastY = 0;
-    let lastMidX = 0, lastMidY = 0;
     let isMultiTouch = false;
     let rafId = null;
 
-    // Смещение: 180px при размере лупы в 120px дает отличный зазор для обзора
-    const VISUAL_OFFSET = 180; 
+    // ВЫСОТА: конструкция теперь выше (220px)
+    const VISUAL_OFFSET = 220; 
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -131,12 +162,13 @@
 
     function updateMagnifierUI(touch) {
         if (!isScaleMode || !touch || isMultiTouch) {
-            if(isMultiTouch) magWrap.style.display = 'none';
+            magWrap.style.display = 'none';
             return;
         }
 
-        magWrap.style.left = `${touch.clientX - 32}px`;
-        magWrap.style.top = `${touch.clientY - 30}px`; 
+        // ЦЕНТР ПО ОСИ X: убрано смещение -32px
+        magWrap.style.left = `${touch.clientX}px`;
+        magWrap.style.top = `${touch.clientY - 20}px`; 
         magWrap.style.display = 'flex';
 
         if (rafId) cancelAnimationFrame(rafId);
@@ -149,15 +181,19 @@
             magCtx.fillStyle = "#111";
             magCtx.fillRect(0, 0, 120, 120);
             magCtx.translate(60, 60);
-            magCtx.scale(10 * zoom, 10 * zoom); // Зум чуть больше, т.к. лупа меньше
+            magCtx.scale(10 * zoom, 10 * zoom);
             magCtx.translate(-ptr.x, -ptr.y);
             
-            const objects = canvas.getObjects();
-            for (let i = 0; i < objects.length; i++) {
-                objects[i].render(magCtx);
-            }
+            canvas.getObjects().forEach(obj => obj.render(magCtx));
             magCtx.restore();
         });
+    }
+
+    function confirmScale() {
+        modal.style.display = 'none';
+        const meters = document.getElementById('dist-input').value;
+        alert(`Масштаб установлен: ${meters}м`);
+        toggleScaleMode();
     }
 
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
@@ -167,8 +203,6 @@
             magWrap.style.display = 'none';
             initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             initialZoom = canvas.getZoom();
-            lastMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            lastMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
         } else {
             isMultiTouch = false;
             const touch = e.touches[0];
@@ -181,20 +215,19 @@
                     if (isMultiTouch) return;
                     const ptr = getPointerUnderCrosshair(touch.clientX, touch.clientY); 
                     const dot = new fabric.Circle({
-                        left: ptr.x, top: ptr.y, radius: 4/canvas.getZoom(),
+                        left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
                         fill: '#ff3b30', stroke: 'white', strokeWidth: 1/canvas.getZoom(),
                         originX: 'center', originY: 'center', selectable: false
                     });
                     
-                    canvas.add(dot);
-                    canvas.requestRenderAll();
+                    canvas.add(dot).requestRenderAll();
                     calPoints.push({...ptr});
                     updateMagnifierUI(touch);
 
                     if (calPoints.length === 1) hint.innerText = "Вторая точка";
                     else if (calPoints.length === 2) { 
-                        alert("Масштаб сохранен"); 
-                        toggleScaleMode(); 
+                        magWrap.style.display = 'none';
+                        modal.style.display = 'flex';
                     }
                 }, 1000);
             }
@@ -205,14 +238,8 @@
         const touch = e.touches[0];
         if (e.touches.length >= 2) {
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
-            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            canvas.zoomToPoint({ x: midX - 65, y: midY }, initialZoom * (dist / initialDist));
-            const vpt = canvas.viewportTransform;
-            vpt[4] += (midX - lastMidX); vpt[5] += (midY - lastMidY);
-            canvas.requestRenderAll();
-            lastMidX = midX; lastMidY = midY;
-        } else if (e.touches.length === 1) {
+            canvas.zoomToPoint({ x: (e.touches[0].clientX + e.touches[1].clientX)/2 - 65, y: (e.touches[0].clientY + e.touches[1].clientY)/2 }, initialZoom * (dist / initialDist));
+        } else if (!isMultiTouch) {
             if (isScaleMode) {
                 updateMagnifierUI(touch);
                 if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 5) clearTimeout(calTimer);
