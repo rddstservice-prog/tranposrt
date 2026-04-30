@@ -169,6 +169,7 @@
     }
     window.addEventListener('resize', resizeCanvas);
 
+    // Логика стыковки
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
@@ -243,47 +244,33 @@
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         let lastAngle = parts.length > 0 ? parts[parts.length-1].angle : 0;
         let obj;
-
-        const meter = 40;
-        const rectW = l * meter;
-        const rectH = w * meter;
-
         if(isMulti) {
-            const bl = l*meter, bw = (w*meter)/2;
+            const bl = l*40, bw = (w*40)/2;
             obj = new fabric.Group([
                 new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
                 new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
-                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444', stroke:'#222'}),
-                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444', stroke:'#222'})
-            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*meter, f_val: 0 });
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})
+            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0 });
         } else if (t === 'truck') {
-            const cabL = rectW * 0.35;
-            const components = [
-                new fabric.Rect({ width: rectW, height: rectH, fill: '#333', rx: 5, originY: 'center' }),
-                new fabric.Rect({ width: cabL, height: rectH, fill: 'white', stroke: '#999', rx: 8, originY: 'center' }),
-                new fabric.Rect({ left: 5, top: -rectH/2 + 5, width: cabL/3, height: rectH - 10, fill: '#333', rx: 2, originY: 'top' }),
-                new fabric.Circle({ radius: 12, left: b * meter, top: 0, fill: '#111', stroke: '#555', originX: 'center', originY: 'center' })
+            const tL = l * 40, tW = w * 40, wL = 1.12 * 40;
+            const axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
+            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
+            const fanBox = instL * 0.85;
+            let components = [
+                new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', originY: 'center' }),
+                new fabric.Rect({ left: cabL + (instL-fanBox)/2, top: -fanBox/2, width: fanBox, height: fanBox, fill: '#ddd', stroke: '#555' }),
+                new fabric.Circle({ radius: fanBox*0.3, left: cabL + instL/2, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333' })
             ];
-            const axX = [1.3 * meter, 2.6 * meter, 5.4 * meter, 6.8 * meter];
             axX.forEach((x, idx) => {
-                const wheelW = 1.1 * meter;
-                const wheelH = (idx < 2) ? 14 : 26; 
-                [-(rectH/2), (rectH/2 - wheelH)].forEach(y => {
-                    components.push(new fabric.Rect({ left: x - wheelW/2, top: y, width: wheelW, height: wheelH, fill: '#111', rx: 3 }));
+                const hW = (idx < 2) ? 13 : 26;
+                [-(tW/2), (tW/2-hW)].forEach(y => {
+                    components.push(new fabric.Rect({ left: x - wL/2, top: y, width: wL, height: hW, fill: '#222', rx: 4 }));
                 });
             });
-            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * meter, f_val: (f||0) * meter, originX: 'left', originY: 'center' });
+            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center' });
         } else {
-            const components = [
-                new fabric.Rect({ width: rectW, height: rectH, fill: c, stroke: '#600', strokeWidth: 1, rx: 2, originY: 'center' }),
-                new fabric.Rect({ top: -4, width: rectW, height: 8, fill: 'rgba(0,0,0,0.2)', originY: 'center' })
-            ];
-            for(let x = 0.75 * meter; x < rectW; x += 1.5 * meter) {
-                [-(rectH/2) + 2, (rectH/2) - 22].forEach(y => {
-                    components.push(new fabric.Rect({ left: x - 15, top: y, width: 30, height: 20, fill: '#222', rx: 2 }));
-                });
-            }
-            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * meter, f_val: (f||0) * meter, originX: 'left', originY: 'center' });
+            obj = new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', originY: 'center' })], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center' });
         }
         obj.set({ hasControls: false, opacity: GLOBAL_OPACITY });
         canvas.add(obj);
