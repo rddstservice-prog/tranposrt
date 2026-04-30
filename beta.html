@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5 - Position Fixed</title>
+    <title>Mobile Beta v0.4.5 - Multitouch Fix</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -152,7 +152,6 @@
         toggleScaleMode();
     }
 
-    // Вспомогательная функция: экранные координаты центра лупы → координаты на канвасе
     function canvasPointFromScreen(screenX, screenY) {
         return canvas.getPointer({ clientX: screenX, clientY: screenY });
     }
@@ -165,12 +164,10 @@
 
         const containerRect = canvasContainer.getBoundingClientRect();
         
-        // Центр лупы по горизонтали: левее пальца на половину диаметра
+        // Центр лупы левее пальца на половину диаметра
         const centerScreenX = touch.clientX - MAG_SIZE/2;
-        // Центр лупы по вертикали: выше пальца на VISUAL_OFFSET
         const centerScreenY = touch.clientY - VISUAL_OFFSET;
         
-        // Позиционируем контейнер magnifier-wrap относительно canvas-container
         const wrapX = centerScreenX - containerRect.left - MAG_SIZE/2;
         const wrapY = centerScreenY - containerRect.top - HINT_HEIGHT - MAG_SIZE/2;
         
@@ -180,7 +177,6 @@
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-            // Точка на канвасе, которая находится под перекрестием
             const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
             const zoom = canvas.getZoom();
             
@@ -203,6 +199,7 @@
 
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
         if (e.touches.length >= 2) {
+            // Мультитач — всегда разрешён зум/пан
             isMultiTouch = true;
             clearTimeout(calTimer);
             magWrap.style.display = 'none';
@@ -246,28 +243,35 @@
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
-        const touch = e.touches[0];
+        e.preventDefault(); // важно для предотвращения скролла страницы
+
         if (e.touches.length >= 2) {
+            // Зум и пан двумя пальцами — работают всегда, независимо от режима
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
             canvas.zoomToPoint({ x: midX, y: midY }, initialZoom * (dist / initialDist));
             const vpt = canvas.viewportTransform;
-            vpt[4] += (midX - lastMidX); vpt[5] += (midY - lastMidY);
+            vpt[4] += (midX - lastMidX);
+            vpt[5] += (midY - lastMidY);
             canvas.requestRenderAll();
-            lastMidX = midX; lastMidY = midY;
+            lastMidX = midX;
+            lastMidY = midY;
         } else if (e.touches.length === 1) {
+            const touch = e.touches[0];
             if (isScaleMode) {
                 updateMagnifierUI(touch);
                 if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 5) clearTimeout(calTimer);
             } else {
+                // Пан одним пальцем в обычном режиме
                 const vpt = canvas.viewportTransform;
-                vpt[4] += (touch.clientX - lastX); vpt[5] += (touch.clientY - lastY);
+                vpt[4] += (touch.clientX - lastX);
+                vpt[5] += (touch.clientY - lastY);
                 canvas.requestRenderAll();
             }
-            lastX = touch.clientX; lastY = touch.clientY;
+            lastX = touch.clientX;
+            lastY = touch.clientY;
         }
-        e.preventDefault();
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchend', () => {
