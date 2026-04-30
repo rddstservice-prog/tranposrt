@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.2.9</title>
+    <title>Mobile Beta v0.3.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 70px; --accent: #FF9800; }
@@ -16,58 +16,65 @@
 
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
 
-        /* Улучшенная лупа: поднята выше */
+        /* Группировка лупы и надписи */
+        #magnifier-wrap {
+            position: absolute;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+            flex-direction: column;
+            align-items: center;
+            /* Сдвиг всей группы вверх, чтобы палец был ниже надписи */
+            transform: translate(-50%, -115%); 
+        }
+
         #magnifier { 
-            position: absolute; 
-            width: 120px; 
-            height: 120px; 
+            width: 140px; 
+            height: 140px; 
             border: 3px solid var(--accent); 
             border-radius: 50%; 
-            pointer-events: none; 
-            display: none; 
-            z-index: 1000; 
             overflow: hidden; 
             background: #111; 
-            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
-            transform: translate(-50%, -160%); /* Подняли еще выше */
+            box-shadow: 0 12px 35px rgba(0,0,0,0.8);
+            position: relative;
         }
-        #mag-canvas { width: 100%; height: 100%; }
-
-        .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
-        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 2px; background: rgba(255, 152, 0, 0.8); }
-        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 2px; height: 100%; background: rgba(255, 152, 0, 0.8); }
 
         #hint { 
-            position: absolute; 
-            background: rgba(0,0,0,0.9); 
-            color: var(--accent); 
-            padding: 10px 16px; 
-            border-radius: 12px; 
-            font-size: 14px; 
-            font-weight: 900; 
-            display: none; 
-            z-index: 1001; 
+            background: var(--accent); 
+            color: #000; 
+            padding: 4px 10px; 
+            border-radius: 4px; 
+            font-size: 11px; 
+            font-weight: 800; 
+            margin-top: 2px; /* Прижато к лупе */
             white-space: nowrap;
-            border: 1px solid var(--accent);
-            transform: translate(-50%, 40px); /* Ниже пальца */
-            pointer-events: none;
             text-transform: uppercase;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
+
+        #mag-canvas { width: 100%; height: 100%; }
+
+        /* Тонкое перекрестие */
+        .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
+        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: #ff3b30; }
+        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: #ff3b30; }
     </style>
 </head>
 <body>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 9px; opacity: 0.3;">v0.2.9</div>
+        <div style="font-size: 9px; opacity: 0.3;">v0.3.1</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
     <main id="canvas-container">
-        <div id="hint">ЗАЖМИТЕ НА 1 СЕКУНДУ</div>
-        <div id="magnifier">
-            <canvas id="mag-canvas" width="120" height="120"></canvas>
-            <div class="crosshair"></div>
+        <div id="magnifier-wrap">
+            <div id="magnifier">
+                <canvas id="mag-canvas" width="140" height="140"></canvas>
+                <div class="crosshair"></div>
+            </div>
+            <div id="hint">Удерживайте для точки</div>
         </div>
         <canvas id="c"></canvas>
     </main>
@@ -79,13 +86,12 @@
         height: window.innerHeight,
         backgroundColor: '#000',
         selection: false,
-        stopContextMenu: true,
-        renderOnAddRemove: true
+        stopContextMenu: true
     });
 
+    const magWrap = document.getElementById('magnifier-wrap');
     const magCanvasEl = document.getElementById('mag-canvas');
     const magCtx = magCanvasEl.getContext('2d', { alpha: false });
-    const magnifier = document.getElementById('magnifier');
     const hint = document.getElementById('hint');
 
     let isScaleMode = false, calPoints = [], calTimer = null;
@@ -112,17 +118,12 @@
         document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
         if (!isScaleMode) { 
             calPoints = []; 
-            canvas.getObjects('circle').filter(o => o.fill === '#ff0000').forEach(o => canvas.remove(o)); 
-            hideUI();
+            canvas.getObjects('circle').forEach(o => canvas.remove(o)); 
+            magWrap.style.display = 'none';
         } else {
-            hint.innerText = "ЗАЖМИТЕ НА 1 СЕКУНДУ";
+            hint.innerText = "Удерживайте для точки";
         }
         canvas.renderAll();
-    }
-
-    function hideUI() {
-        magnifier.style.display = 'none';
-        hint.style.display = 'none';
     }
 
     function updateMagnifierUI(touch) {
@@ -131,25 +132,22 @@
         const x = touch.clientX - 70; 
         const y = touch.clientY;
 
-        magnifier.style.left = `${x}px`;
-        magnifier.style.top = `${y}px`;
-        magnifier.style.display = 'block';
+        magWrap.style.left = `${x}px`;
+        magWrap.style.top = `${y}px`;
+        magWrap.style.display = 'flex';
 
-        hint.style.left = `${x}px`;
-        hint.style.top = `${y}px`;
-        hint.style.display = 'block';
-
-        // Рендерим содержимое канваса в лупу
         const ptr = canvas.getPointer(touch);
         const zoom = canvas.getZoom();
         
         magCtx.save();
-        magCtx.imageSmoothingEnabled = false; // Чтобы на зуме не было мыла
-        magCtx.fillStyle = "#000";
-        magCtx.fillRect(0, 0, 120, 120);
-        magCtx.translate(60, 60);
+        magCtx.imageSmoothingEnabled = false;
+        magCtx.fillStyle = "#111";
+        magCtx.fillRect(0, 0, 140, 140);
+        
+        magCtx.translate(70, 70);
         magCtx.scale(8 * zoom, 8 * zoom); 
         magCtx.translate(-ptr.x, -ptr.y);
+        
         canvas.renderCanvas(magCtx, canvas.getObjects());
         magCtx.restore();
     }
@@ -159,18 +157,19 @@
         const ptr = canvas.getPointer(touch);
         calTimer = setTimeout(() => {
             const dot = new fabric.Circle({
-                left: ptr.x, top: ptr.y, radius: 6/canvas.getZoom(),
-                fill: '#ff0000', stroke: 'white', strokeWidth: 2/canvas.getZoom(),
+                left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
+                fill: '#ff3b30', stroke: 'white', strokeWidth: 1.5/canvas.getZoom(),
                 originX: 'center', originY: 'center', selectable: false
             });
             canvas.add(dot).renderAll();
             calPoints.push({...ptr});
             
+            magWrap.style.display = 'none';
+            
             if (calPoints.length === 1) {
-                hint.innerText = "ВТОРАЯ ТОЧКА...";
-                // После первой точки лупа остается активной для выбора второй
+                hint.innerText = "Вторая точка";
             } else if (calPoints.length === 2) {
-                alert("ГОТОВО: МАСШТАБ СОХРАНЕН");
+                alert("Масштаб сохранен");
                 toggleScaleMode();
             }
         }, 1000);
@@ -181,13 +180,12 @@
             clearTimeout(calTimer);
             initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             initialZoom = canvas.getZoom();
-            hideUI();
+            magWrap.style.display = 'none';
         } else if (e.touches.length === 1) {
             const touch = e.touches[0];
             canvas.isDragging = true;
             lastX = touch.clientX;
             lastY = touch.clientY;
-
             if (isScaleMode) {
                 updateMagnifierUI(touch);
                 startCalTimer(touch);
@@ -198,21 +196,16 @@
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
         if (e.touches.length === 2) {
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-            const mid = { 
-                x: (e.touches[0].clientX + e.touches[1].clientX)/2 - 70, 
-                y: (e.touches[0].clientY + e.touches[1].clientY)/2 
-            };
+            const mid = { x: (e.touches[0].clientX + e.touches[1].clientX)/2 - 70, y: (e.touches[0].clientY + e.touches[1].clientY)/2 };
             canvas.zoomToPoint(mid, initialZoom * (dist / initialDist));
         } else if (e.touches.length === 1 && canvas.isDragging) {
             const touch = e.touches[0];
             
-            // Сбрасываем таймер при движении, чтобы точка ставилась только "по удержанию"
-            if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 3) {
+            if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 2) {
                 clearTimeout(calTimer);
                 if (isScaleMode) startCalTimer(touch); 
             }
 
-            // Панорамирование
             const vpt = canvas.viewportTransform;
             vpt[4] += touch.clientX - lastX;
             vpt[5] += touch.clientY - lastY;
@@ -229,7 +222,7 @@
     canvas.upperCanvasEl.addEventListener('touchend', () => {
         canvas.isDragging = false;
         clearTimeout(calTimer);
-        hideUI();
+        magWrap.style.display = 'none';
     });
 
     window.addEventListener('resize', () => {
