@@ -24,7 +24,6 @@
             flex-direction: column;
             align-items: center;
             will-change: left, top;
-            /* Важно: убираем любые transform, работаем только через left/top */
         }
 
         #magnifier { 
@@ -151,9 +150,8 @@
         toggleScaleMode();
     }
 
-    // ВАЖНО: Получаем точку на канвасе именно там, где находится ЦЕНТР лупы
+    // Возвращает координаты на канвасе, соответствующие центру лупы (перекрестию)
     function getPointerUnderMagnifier(clientX, clientY) {
-        // Мы позиционируем лупу ровно по X пальца, но выше на VISUAL_OFFSET
         return canvas.getPointer({
             clientX: clientX,
             clientY: clientY - VISUAL_OFFSET
@@ -166,9 +164,10 @@
             return;
         }
 
-        // Позиционируем контейнер так, чтобы его горизонтальный центр был над пальцем
-        const wrapX = touch.clientX - MAG_SIZE/2;
-        // Вертикально: палец минус оффсет минус половина высоты лупы и минус высота подсказки
+        // Смещаем лупу левее: центр лупы теперь левее пальца на половину диаметра (MAG_SIZE/2)
+        // Было: wrapX = touch.clientX - MAG_SIZE/2 (центр над пальцем)
+        // Стало: wrapX = touch.clientX - MAG_SIZE (центр левее пальца на MAG_SIZE/2)
+        const wrapX = touch.clientX - MAG_SIZE;
         const wrapY = touch.clientY - VISUAL_OFFSET - (MAG_SIZE/2) - 30;
 
         magWrap.style.left = `${wrapX}px`;
@@ -177,8 +176,8 @@
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-            // Берем координаты точки, которая находится под ПЕРЕКРЕСТИЕМ
-            const ptr = getPointerUnderMagnifier(touch.clientX, touch.clientY);
+            // Точка под перекрестием теперь левее пальца на полдиаметра
+            const ptr = getPointerUnderMagnifier(touch.clientX - MAG_SIZE/2, touch.clientY);
             const zoom = canvas.getZoom();
             
             magCtx.save();
@@ -186,7 +185,6 @@
             magCtx.fillStyle = "#111";
             magCtx.fillRect(0, 0, MAG_SIZE, MAG_SIZE);
             
-            // Сдвигаем рисование в центр канваса лупы
             magCtx.translate(MAG_SIZE/2, MAG_SIZE/2);
             magCtx.scale(8 * zoom, 8 * zoom); 
             magCtx.translate(-ptr.x, -ptr.y);
@@ -218,7 +216,8 @@
                 clearTimeout(calTimer);
                 calTimer = setTimeout(() => {
                     if (isMultiTouch) return;
-                    const ptr = getPointerUnderMagnifier(touch.clientX, touch.clientY); 
+                    // Точка ставится туда, где сейчас перекрестие (левее пальца)
+                    const ptr = getPointerUnderMagnifier(touch.clientX - MAG_SIZE/2, touch.clientY);
                     const dot = new fabric.Circle({
                         left: ptr.x, top: ptr.y, radius: 6/canvas.getZoom(),
                         fill: '#ff3b30', stroke: 'white', strokeWidth: 2/canvas.getZoom(),
