@@ -101,7 +101,7 @@
 
 <div id="hub-screen">
     <div class="version-badge">v0.1.0-beta</div>
-    <div class="build-info">HEAVY TRANSPORT | BUILD  10-16  </div>
+    <div class="build-info">HEAVY TRANSPORT | BUILD  10-18  </div>
     <button class="btn-start" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
@@ -172,7 +172,7 @@
     // Разрешаем прокрутку внутри сайдбара, останавливая "захват" события картой
 
  const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: false, imageSmoothingEnabled: false });
+    const canvas = new fabric.Canvas('c', { width: wrap.clientWidth, height: wrap.clientHeight, backgroundColor: '#333', selection: true, allowTouchScrolling: true, imageSmoothingEnabled: false });
     const magEl = document.getElementById('magnifier'), magCtx = document.getElementById('mag-canvas').getContext('2d');
     
     window.addEventListener('resize', () => {
