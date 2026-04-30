@@ -3,45 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Beta v0.1.7 - Live Magnifier</title>
+    <title>Mobile Beta v0.2.0</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        :root { --bg: #1a1a1a; --menu-w: 80px; --accent: #FF9800; }
-        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; touch-action: none; }
+        :root { --bg: #1a1a1a; --menu-w: 75px; --accent: #FF9800; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; touch-action: none; }
         #app { display: flex; width: 100vw; height: 100vh; }
 
         #sidebar { 
             width: var(--menu-w); background: #252525; border-right: 1px solid #333; 
-            display: flex; flex-direction: column; padding: 10px 5px; gap: 12px; 
-            z-index: 10; overflow-y: auto; align-items: center;
+            display: flex; flex-direction: column; padding: 10px 4px; gap: 10px; 
+            z-index: 10; align-items: center;
         }
-        .version-label { padding: 5px 0; font-size: 9px; color: rgba(255,255,255,0.2); pointer-events: none; text-align: center; width: 100%; border-bottom: 1px solid rgba(255,255,255,0.05); margin-bottom: 5px; }
+        .version-label { font-size: 10px; opacity: 0.3; margin-bottom: 5px; }
 
         .menu-btn {
-            width: 100%; min-height: 70px; aspect-ratio: 1/1; background: #333; 
-            border: 1px solid #444; border-radius: 10px; color: white; 
-            display: flex; flex-direction: column; align-items: center; justify-content: center; 
-            font-size: 9px; font-weight: bold; flex-shrink: 0;
+            width: 90%; aspect-ratio: 1/1; background: #333; border: 1px solid #444; border-radius: 12px; 
+            color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            font-size: 10px; font-weight: bold; -webkit-tap-highlight-color: transparent;
         }
-        .menu-btn.active { border-color: var(--accent); background: rgba(255, 152, 0, 0.2); color: var(--accent); }
-        .menu-btn i { font-style: normal; font-size: 20px; margin-bottom: 3px; }
+        .menu-btn:active { background: #444; transform: scale(0.95); }
+        .menu-btn.active { border-color: var(--accent); background: rgba(255, 152, 0, 0.15); color: var(--accent); }
+        .menu-btn i { font-style: normal; font-size: 22px; margin-bottom: 2px; }
 
-        #canvas-container { flex-grow: 1; position: relative; }
+        #canvas-container { flex-grow: 1; position: relative; overflow: hidden; background: #111; }
         
         #magnifier {
-            position: absolute; width: 150px; height: 150px; border: 3px solid var(--accent);
+            position: absolute; width: 160px; height: 160px; border: 3px solid var(--accent);
             border-radius: 50%; pointer-events: none; display: none; z-index: 1000;
-            overflow: hidden; background: #222; box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+            overflow: hidden; background: #222; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
         }
         #mag-canvas { width: 100%; height: 100%; }
-        .crosshair { position: absolute; top: 50%; left: 50%; width: 40px; height: 40px; transform: translate(-50%, -50%); }
+        .crosshair { position: absolute; top: 50%; left: 50%; width: 30px; height: 30px; transform: translate(-50%, -50%); }
         .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--accent); }
         .crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; }
         .crosshair::after { left: 50%; top: 0; height: 100%; width: 2px; }
 
         #hint {
-            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            background: var(--accent); color: black; padding: 5px 15px; border-radius: 15px; font-size: 11px; font-weight: bold; display: none; z-index: 100;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); color: var(--accent); padding: 8px 16px; 
+            border-radius: 20px; font-size: 12px; font-weight: bold; display: none; 
+            z-index: 100; border: 1px solid var(--accent); white-space: nowrap;
         }
     </style>
 </head>
@@ -49,16 +51,16 @@
 
 <div id="app">
     <aside id="sidebar">
-        <div class="version-label">v 0.1.7</div>
-        <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🗺</i><span>КАРТА</span></div>
+        <div class="version-label">v0.2.0</div>
+        <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
 
     <main id="canvas-container">
-        <div id="hint">УДЕРЖИВАЙТЕ 1.5 СЕК</div>
+        <div id="hint">УДЕРЖИВАЙТЕ ДЛЯ ТОЧКИ</div>
         <div id="magnifier">
-            <canvas id="mag-canvas" width="150" height="150"></canvas>
+            <canvas id="mag-canvas" width="160" height="160"></canvas>
             <div class="crosshair"></div>
         </div>
         <canvas id="c"></canvas>
@@ -67,19 +69,20 @@
 
 <script>
     const canvas = new fabric.Canvas('c', {
-        width: window.innerWidth - 80,
+        width: window.innerWidth - 75,
         height: window.innerHeight,
-        backgroundColor: '#222',
+        backgroundColor: '#111',
         selection: false,
         stopContextMenu: true,
-        imageSmoothingEnabled: false // Для четкости в лупе
+        enableRetinaScaling: true
     });
 
-    const magCtx = document.getElementById('mag-canvas').getContext('2d');
+    const magCtx = document.getElementById('mag-canvas').getContext('2d', { alpha: false });
     const magnifier = document.getElementById('magnifier');
     const hint = document.getElementById('hint');
 
     let isScaleMode = false, calPoints = [], calTimer = null;
+    let lastZoom = 1;
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -87,7 +90,7 @@
         const reader = new FileReader();
         reader.onload = (f) => {
             fabric.Image.fromURL(f.target.result, (img) => {
-                canvas.getObjects('image').forEach(m => canvas.remove(m));
+                canvas.clear();
                 img.set({ left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', selectable: false, evented: false });
                 img.scale(Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9);
                 canvas.add(img).sendToBack().renderAll();
@@ -101,7 +104,7 @@
         document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
         hint.style.display = isScaleMode ? 'block' : 'none';
         if (!isScaleMode) {
-            canvas.getObjects('circle').filter(o => o.isCalDot).forEach(d => canvas.remove(d));
+            canvas.getObjects('circle').forEach(d => canvas.remove(d));
             calPoints = [];
         }
         canvas.renderAll();
@@ -109,53 +112,74 @@
 
     function updateMagnifier(touch) {
         const ptr = canvas.getPointer(touch);
-        magnifier.style.display = 'block';
+        const zoom = canvas.getZoom();
         
-        // Позиция самой лупы на экране (над пальцем)
-        magnifier.style.left = (touch.clientX - 75) + 'px';
-        magnifier.style.top = (touch.clientY - 200) + 'px'; 
+        magnifier.style.display = 'block';
+        magnifier.style.left = (touch.clientX - 80 - 75) + 'px'; // Центрируем по X (вычитаем меню)
+        magnifier.style.top = (touch.clientY - 220) + 'px'; 
 
-        // Отрисовка содержимого
         magCtx.save();
-        magCtx.clearRect(0, 0, 150, 150);
-        magCtx.translate(75, 75); // В центр канваса лупы
-        magCtx.scale(4, 4);       // Зум в лупе
+        magCtx.fillStyle = "#111";
+        magCtx.fillRect(0, 0, 160, 160);
+        magCtx.translate(80, 80); 
+        magCtx.scale(4 * zoom, 4 * zoom); 
         magCtx.translate(-ptr.x, -ptr.y);
         canvas.renderCanvas(magCtx, canvas.getObjects());
         magCtx.restore();
     }
 
+    // --- МОБИЛЬНЫЙ ЗУМ И ТАЧИ ---
+    canvas.on('touch:gesture', function(opt) {
+        if (opt.e.touches && opt.e.touches.length === 2) {
+            let zoom = lastZoom * opt.self.scale;
+            if (zoom > 20) zoom = 20;
+            if (zoom < 0.1) zoom = 0.1;
+            canvas.zoomToPoint({ x: opt.self.x, y: opt.self.y }, zoom);
+            canvas.renderAll();
+        }
+    });
+
     canvas.on('mouse:down', function(opt) {
         const e = opt.e;
-        const touch = e.touches ? e.touches[0] : e;
+        lastZoom = canvas.getZoom();
         
+        if (e.touches && e.touches.length > 1) {
+            this.isDragging = false;
+            clearTimeout(calTimer);
+            return;
+        }
+
+        const touch = e.touches ? e.touches[0] : e;
         this.isDragging = true;
         this.lastPosX = touch.clientX;
         this.lastPosY = touch.clientY;
 
-        if (isScaleMode && (!e.touches || e.touches.length === 1)) {
+        if (isScaleMode) {
             updateMagnifier(touch);
             const ptr = canvas.getPointer(e);
             
             calTimer = setTimeout(() => {
                 const dot = new fabric.Circle({
-                    left: ptr.x, top: ptr.y, radius: 6, fill: 'red',
-                    stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center',
-                    isCalDot: true, selectable: false
+                    left: ptr.x, top: ptr.y, radius: 6/canvas.getZoom(), fill: 'red',
+                    stroke: 'white', strokeWidth: 1/canvas.getZoom(), originX: 'center', originY: 'center',
+                    selectable: false
                 });
-                canvas.add(dot);
+                canvas.add(dot).renderAll();
+                updateMagnifier(touch);
                 calPoints.push({...ptr});
-                if (calPoints.length === 2) finishCalibration();
-            }, 1500);
+                if (calPoints.length === 2) {
+                    setTimeout(() => { alert("Готово!"); toggleScaleMode(); }, 200);
+                }
+            }, 1200);
         }
     });
 
     canvas.on('mouse:move', function(opt) {
         const e = opt.e;
-        const touch = e.touches ? e.touches[0] : e;
+        if (e.touches && e.touches.length > 1) return;
 
+        const touch = e.touches ? e.touches[0] : e;
         if (this.isDragging) {
-            // Двигаем карту
             const vpt = this.viewportTransform;
             vpt[4] += touch.clientX - this.lastPosX;
             vpt[5] += touch.clientY - this.lastPosY;
@@ -164,26 +188,22 @@
             this.lastPosX = touch.clientX;
             this.lastPosY = touch.clientY;
 
-            // Живое обновление лупы при движении
             if (isScaleMode) {
                 updateMagnifier(touch);
-                clearTimeout(calTimer); // Сбрасываем таймер точки при активном движении
+                clearTimeout(calTimer); 
             }
         }
     });
 
-    canvas.on('mouse:up', function() {
-        this.isDragging = false;
+    canvas.on('mouse:up', () => {
+        canvas.isDragging = false;
         magnifier.style.display = 'none';
         clearTimeout(calTimer);
     });
 
-    function finishCalibration() {
-        alert("Точки зафиксированы");
-        toggleScaleMode();
-    }
-
-    window.addEventListener('resize', () => canvas.setDimensions({ width: window.innerWidth - 80, height: window.innerHeight }));
+    window.addEventListener('resize', () => {
+        canvas.setDimensions({ width: window.innerWidth - 75, height: window.innerHeight });
+    });
 </script>
 </body>
 </html>
