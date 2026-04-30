@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5 - Right Offset</title>
+    <title>Mobile Beta v0.4.5 - Center Loupe</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -116,10 +116,9 @@
     let isMultiTouch = false;
     let rafId = null;
 
-    // Константы
-    const MAG_SIZE = 120;          // диаметр лупы
-    const VISUAL_OFFSET = 150;     // расстояние от пальца до центра лупы по вертикали
-    const HINT_HEIGHT = 30;        // примерная высота блока с подсказкой (с margin)
+    const MAG_SIZE = 120;
+    const VISUAL_OFFSET = 150;
+    const HINT_HEIGHT = 30;
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -164,8 +163,8 @@
 
         const containerRect = canvasContainer.getBoundingClientRect();
         
-        // Центр лупы теперь ПРАВЕЕ пальца на половину диаметра
-        const centerScreenX = touch.clientX + MAG_SIZE/2;
+        // Центр лупы теперь точно над пальцем (без горизонтального смещения)
+        const centerScreenX = touch.clientX;
         const centerScreenY = touch.clientY - VISUAL_OFFSET;
         
         const wrapX = centerScreenX - containerRect.left - MAG_SIZE/2;
@@ -199,7 +198,6 @@
 
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
         if (e.touches.length >= 2) {
-            // Мультитач — всегда разрешён зум/пан
             isMultiTouch = true;
             clearTimeout(calTimer);
             magWrap.style.display = 'none';
@@ -217,8 +215,8 @@
                 clearTimeout(calTimer);
                 calTimer = setTimeout(() => {
                     if (isMultiTouch) return;
-                    // Точка ставится там же, где перекрестие — правее пальца на полдиаметра
-                    const centerScreenX = touch.clientX + MAG_SIZE/2;
+                    // Точка ставится точно под перекрестием (без горизонтального смещения)
+                    const centerScreenX = touch.clientX;
                     const centerScreenY = touch.clientY - VISUAL_OFFSET;
                     const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
                     const dot = new fabric.Circle({
@@ -244,35 +242,28 @@
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
-        e.preventDefault(); // важно для предотвращения скролла страницы
-
+        const touch = e.touches[0];
         if (e.touches.length >= 2) {
-            // Зум и пан двумя пальцами — работают всегда, независимо от режима
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
             canvas.zoomToPoint({ x: midX, y: midY }, initialZoom * (dist / initialDist));
             const vpt = canvas.viewportTransform;
-            vpt[4] += (midX - lastMidX);
-            vpt[5] += (midY - lastMidY);
+            vpt[4] += (midX - lastMidX); vpt[5] += (midY - lastMidY);
             canvas.requestRenderAll();
-            lastMidX = midX;
-            lastMidY = midY;
+            lastMidX = midX; lastMidY = midY;
         } else if (e.touches.length === 1) {
-            const touch = e.touches[0];
             if (isScaleMode) {
                 updateMagnifierUI(touch);
                 if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 5) clearTimeout(calTimer);
             } else {
-                // Пан одним пальцем в обычном режиме
                 const vpt = canvas.viewportTransform;
-                vpt[4] += (touch.clientX - lastX);
-                vpt[5] += (touch.clientY - lastY);
+                vpt[4] += (touch.clientX - lastX); vpt[5] += (touch.clientY - lastY);
                 canvas.requestRenderAll();
             }
-            lastX = touch.clientX;
-            lastY = touch.clientY;
+            lastX = touch.clientX; lastY = touch.clientY;
         }
+        e.preventDefault();
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchend', () => {
