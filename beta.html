@@ -14,15 +14,14 @@
         
         body { 
             margin: 0; 
-            font-family: sans-serif; 
-            background: #000; 
-            color: white; 
-            display: flex; 
-            height: 100vh; 
-            height: 100dvh; 
-            width: 100vw; 
-            overflow: hidden; 
-            position: fixed; 
+    font-family: sans-serif; 
+    background: #000; 
+    color: white; 
+    display: flex; 
+    height: 100dvh; 
+    width: 100vw; 
+    overflow: hidden; 
+    position: relative; /* Изменили с fixed на relative */
         }
         
         /* Экран входа */
@@ -101,7 +100,7 @@
 
 <div id="hub-screen">
     <div class="version-badge">v0.1.0-beta</div>
-    <div class="build-info">HEAVY TRANSPORT | BUILD  09-59  </div>
+    <div class="build-info">HEAVY TRANSPORT | BUILD  10-03  </div>
     <button class="btn-start" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
