@@ -3,111 +3,197 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Beta - Step by Step</title>
+    <title>Beta - Map & Scale</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        /* БЛОК 1: ОФОРМЛЕНИЕ */
-        :root { --bg: #1a1a1a; --menu-w: 90px; --accent: #2196F3; }
-        
+        :root { --bg: #1a1a1a; --menu-w: 90px; --accent: #FF9800; --blue: #2196F3; }
         body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; }
-
         #app { display: flex; width: 100vw; height: 100vh; }
 
         /* Боковое меню */
         #sidebar { 
-            width: var(--menu-w); 
-            background: #252525; 
-            border-right: 1px solid #333; 
-            display: flex; 
-            flex-direction: column; 
-            padding: 10px; 
-            gap: 15px;
-            z-index: 10;
+            width: var(--menu-w); background: #252525; border-right: 1px solid #333; 
+            display: flex; flex-direction: column; padding: 10px; gap: 15px; z-index: 10;
         }
 
-        /* Стиль кнопки */
         .menu-btn {
-            width: 100%;
-            aspect-ratio: 1 / 1;
-            background: #333;
-            border: 1px solid #444;
-            border-radius: 12px;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: bold;
-            cursor: pointer;
+            width: 100%; aspect-ratio: 1 / 1; background: #333; border: 1px solid #444;
+            border-radius: 12px; color: white; display: flex; flex-direction: column;
+            align-items: center; justify-content: center; font-size: 10px; font-weight: bold;
         }
-
-        .menu-btn:active { background: var(--accent); transform: scale(0.95); }
+        .menu-btn:active { background: #444; }
+        .menu-btn.active { border-color: var(--accent); color: var(--accent); }
         .menu-btn i { font-style: normal; font-size: 24px; margin-bottom: 5px; }
 
-        /* Зона холста */
-        #canvas-container { flex-grow: 1; position: relative; }
+        /* Холст и доп. элементы */
+        #canvas-container { flex-grow: 1; position: relative; overflow: hidden; }
         canvas { touch-action: none; }
+
+        /* Лупа */
+        #magnifier {
+            position: absolute; width: 150px; height: 150px; border: 2px solid var(--accent);
+            border-radius: 50%; pointer-events: none; display: none; z-index: 100;
+            overflow: hidden; background: #000; box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        #mag-canvas { width: 100%; height: 100%; }
+        .crosshair {
+            position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+        .crosshair::before, .crosshair::after {
+            content: ''; position: absolute; background: var(--accent);
+        }
+        .crosshair::before { top: 50%; left: 0; width: 100%; height: 2px; margin-top: -1px; }
+        .crosshair::after { left: 50%; top: 0; height: 100%; width: 2px; margin-left: -1px; }
+
+        /* Подсказка */
+        #hint {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.8); padding: 8px 15px; border-radius: 20px;
+            font-size: 12px; border: 1px solid var(--accent); display: none; z-index: 100;
+        }
     </style>
 </head>
 <body>
 
 <div id="app">
-    <!-- БЛОК 2: ИНТЕРФЕЙС (Пока только одна кнопка) -->
     <aside id="sidebar">
-        <div class="menu-btn" onclick="addTruck()">
-            <i>🚛</i>
-            <span>ТЯГАЧ</span>
+        <div class="menu-btn" onclick="document.getElementById('map-upload').click()">
+            <i>🗺</i><span>КАРТА</span>
         </div>
+        <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()">
+            <i>📏</i><span>МАСШТАБ</span>
+        </div>
+        <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
     </aside>
 
-    <main id="canvas-container">
+    <main id="canvas-container" id="main-area">
+        <div id="hint">УДЕРЖИВАЙТЕ 1 СЕК</div>
+        <div id="magnifier">
+            <canvas id="mag-canvas" width="150" height="150"></canvas>
+            <div class="crosshair"></div>
+        </div>
         <canvas id="c"></canvas>
     </main>
 </div>
 
 <script>
-    /* БЛОК 3: ЛОГИКА */
-    const tg = window.Telegram?.WebApp;
-    if (tg) tg.expand();
-
-    // Инициализация холста
     const canvas = new fabric.Canvas('c', {
-        width: window.innerWidth - 90, // Минус ширина меню
+        width: window.innerWidth - 90,
         height: window.innerHeight,
         backgroundColor: '#222',
         selection: false
     });
 
-    // Функция добавления тягача
-    function addTruck() {
-        const truck = new fabric.Rect({
-            left: 50,
-            top: 50,
-            width: 80,
-            height: 35,
-            fill: '#2196F3',
-            stroke: 'white',
-            strokeWidth: 2,
-            rx: 5, // Скругление углов
-            ry: 5,
-            hasControls: true, // Разрешаем менять размер и крутить для теста
-            hasBorders: true
-        });
+    const magCanvas = document.getElementById('mag-canvas');
+    const magCtx = magCanvas.getContext('2d');
+    const magnifier = document.getElementById('magnifier');
+    const hint = document.getElementById('hint');
 
-        canvas.add(truck);
-        canvas.setActiveObject(truck);
+    let PX_METER = 1; // Пикселей в 1 метре
+    let isScaleMode = false;
+    let calPoints = [];
+    let calTimer = null;
+
+    // --- ФУНКЦИЯ КАРТЫ ---
+    function handleMapUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (f) => {
+            fabric.Image.fromURL(f.target.result, (img) => {
+                // Удаляем старую карту если есть
+                canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
+                
+                img.set({
+                    left: canvas.width / 2,
+                    top: canvas.height / 2,
+                    originX: 'center',
+                    originY: 'center',
+                    selectable: false,
+                    evented: false,
+                    type: 'map'
+                });
+                
+                // Масштабируем карту, чтобы она вписалась в экран при загрузке
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+                img.scale(scale);
+                
+                canvas.add(img);
+                img.sendToBack();
+                canvas.renderAll();
+            });
+        };
+        reader.readAsDataURL(file);
     }
 
-    // Автоматический ресайз при смене ориентации экрана
+    // --- ФУНКЦИЯ МАСШТАБА ---
+    function toggleScaleMode() {
+        isScaleMode = !isScaleMode;
+        calPoints = [];
+        document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
+        hint.style.display = isScaleMode ? 'block' : 'none';
+        canvas.getObjects().filter(o => o.isCalDot).forEach(d => canvas.remove(d));
+    }
+
+    canvas.on('mouse:down', (opt) => {
+        if (!isScaleMode) return;
+        
+        const ptr = canvas.getPointer(opt.e);
+        calTimer = setTimeout(() => {
+            const dot = new fabric.Circle({
+                left: ptr.x, top: ptr.y, radius: 5, fill: 'red',
+                originX: 'center', originY: 'center', isCalDot: true, selectable: false
+            });
+            canvas.add(dot);
+            calPoints.push(ptr);
+
+            if (calPoints.length === 2) {
+                finishCalibration();
+            }
+        }, 1000);
+    });
+
+    canvas.on('mouse:move', (opt) => {
+        if (!isScaleMode) return;
+        const ptr = canvas.getPointer(opt.e);
+        
+        // Показываем лупу
+        magnifier.style.display = 'block';
+        magnifier.style.left = (opt.e.clientX - 160) + 'px'; // Смещение чтобы палец не закрывал
+        magnifier.style.top = (opt.e.clientY - 160) + 'px';
+
+        // Отрисовка в лупе
+        magCtx.clearRect(0, 0, 150, 150);
+        magCtx.save();
+        magCtx.translate(75, 75);
+        magCtx.scale(3, 3); // Увеличение в 3 раза
+        magCtx.translate(-ptr.x, -ptr.y);
+        canvas.renderCanvas(magCtx, canvas.getObjects());
+        magCtx.restore();
+    });
+
+    canvas.on('mouse:up', () => {
+        clearTimeout(calTimer);
+        magnifier.style.display = 'none';
+    });
+
+    function finishCalibration() {
+        const distPx = Math.hypot(calPoints[1].x - calPoints[0].x, calPoints[1].y - calPoints[0].y);
+        const meters = prompt("Введите расстояние между точками (метров):", "100");
+        
+        if (meters && parseFloat(meters) > 0) {
+            PX_METER = distPx / parseFloat(meters);
+            alert(`Масштаб установлен: 1м = ${PX_METER.toFixed(2)}px`);
+        }
+        
+        toggleScaleMode();
+    }
+
     window.addEventListener('resize', () => {
-        canvas.setDimensions({
-            width: window.innerWidth - 90,
-            height: window.innerHeight
-        });
+        canvas.setDimensions({ width: window.innerWidth - 90, height: window.innerHeight });
     });
 </script>
-
 </body>
 </html>
