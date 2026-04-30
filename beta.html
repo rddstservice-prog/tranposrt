@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.3.2</title>
+    <title>Mobile Beta v0.3.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 70px; --accent: #FF9800; }
@@ -16,7 +16,6 @@
 
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
 
-        /* Группировка лупы и надписи - ПОДНЯТО ВЫШЕ */
         #magnifier-wrap {
             position: absolute;
             pointer-events: none;
@@ -24,19 +23,18 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            /* Сдвигаем всю группу вверх относительно пальца */
             transform: translate(-50%, -100%); 
-            margin-top: -80px; /* Увеличенный отступ от пальца вверх */
+            margin-top: -100px;
         }
 
         #magnifier { 
-            width: 140px; 
-            height: 140px; 
+            width: 150px; 
+            height: 150px; 
             border: 3px solid var(--accent); 
             border-radius: 50%; 
             overflow: hidden; 
             background: #111; 
-            box-shadow: 0 15px 40px rgba(0,0,0,0.9);
+            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
             position: relative;
         }
 
@@ -47,10 +45,9 @@
             border-radius: 4px; 
             font-size: 11px; 
             font-weight: 900; 
-            margin-top: 8px; /* Небольшой зазор под лупой */
+            margin-top: 10px;
             white-space: nowrap;
             text-transform: uppercase;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
         }
 
         #mag-canvas { width: 100%; height: 100%; }
@@ -63,7 +60,7 @@
 <body>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 9px; opacity: 0.3;">v0.3.2</div>
+        <div style="font-size: 9px; opacity: 0.3;">v0.3.4</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -71,7 +68,7 @@
     <main id="canvas-container">
         <div id="magnifier-wrap">
             <div id="magnifier">
-                <canvas id="mag-canvas" width="140" height="140"></canvas>
+                <canvas id="mag-canvas" width="150" height="150"></canvas>
                 <div class="crosshair"></div>
             </div>
             <div id="hint">Удерживайте для точки</div>
@@ -97,6 +94,7 @@
     let isScaleMode = false, calPoints = [], calTimer = null;
     let initialDist = 0, initialZoom = 1;
     let lastX = 0, lastY = 0;
+    let isMultiTouch = false;
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -127,11 +125,9 @@
     }
 
     function updateMagnifierUI(touch) {
-        if (!isScaleMode || !touch) return;
-        
+        if (!isScaleMode || !touch || isMultiTouch) return;
         const x = touch.clientX - 70; 
         const y = touch.clientY;
-
         magWrap.style.left = `${x}px`;
         magWrap.style.top = `${y}px`;
         magWrap.style.display = 'flex';
@@ -142,87 +138,82 @@
         magCtx.save();
         magCtx.imageSmoothingEnabled = false;
         magCtx.fillStyle = "#111";
-        magCtx.fillRect(0, 0, 140, 140);
-        
-        magCtx.translate(70, 70);
+        magCtx.fillRect(0, 0, 150, 150);
+        magCtx.translate(75, 75);
         magCtx.scale(8 * zoom, 8 * zoom); 
         magCtx.translate(-ptr.x, -ptr.y);
-        
         canvas.renderCanvas(magCtx, canvas.getObjects());
         magCtx.restore();
     }
 
-    function startCalTimer(touch) {
-        clearTimeout(calTimer);
-        const ptr = canvas.getPointer(touch);
-        calTimer = setTimeout(() => {
-            const dot = new fabric.Circle({
-                left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
-                fill: '#ff3b30', stroke: 'white', strokeWidth: 1.5/canvas.getZoom(),
-                originX: 'center', originY: 'center', selectable: false
-            });
-            canvas.add(dot).renderAll();
-            calPoints.push({...ptr});
-            
-            magWrap.style.display = 'none';
-            
-            if (calPoints.length === 1) {
-                hint.innerText = "Вторая точка";
-            } else if (calPoints.length === 2) {
-                alert("Масштаб сохранен");
-                toggleScaleMode();
-            }
-        }, 1000);
-    }
-
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
-        if (e.touches.length === 2) {
+        if (e.touches.length >= 2) {
+            isMultiTouch = true;
             clearTimeout(calTimer);
+            magWrap.style.display = 'none';
             initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             initialZoom = canvas.getZoom();
-            magWrap.style.display = 'none';
-        } else if (e.touches.length === 1) {
+        } else {
+            isMultiTouch = false;
             const touch = e.touches[0];
-            canvas.isDragging = true;
             lastX = touch.clientX;
             lastY = touch.clientY;
+            
             if (isScaleMode) {
                 updateMagnifierUI(touch);
-                startCalTimer(touch);
+                const ptr = canvas.getPointer(touch);
+                clearTimeout(calTimer);
+                calTimer = setTimeout(() => {
+                    if (isMultiTouch) return;
+                    const dot = new fabric.Circle({
+                        left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
+                        fill: '#ff3b30', stroke: 'white', strokeWidth: 1.5/canvas.getZoom(),
+                        originX: 'center', originY: 'center', selectable: false
+                    });
+                    canvas.add(dot).renderAll();
+                    calPoints.push({...ptr});
+                    magWrap.style.display = 'none';
+                    if (calPoints.length === 1) hint.innerText = "Вторая точка";
+                    else if (calPoints.length === 2) { alert("Масштаб сохранен"); toggleScaleMode(); }
+                }, 1000);
             }
         }
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
-        if (e.touches.length === 2) {
+        if (e.touches.length >= 2) {
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-            const mid = { x: (e.touches[0].clientX + e.touches[1].clientX)/2 - 70, y: (e.touches[0].clientY + e.touches[1].clientY)/2 };
+            const mid = { 
+                x: (e.touches[0].clientX + e.touches[1].clientX)/2 - 70, 
+                y: (e.touches[0].clientY + e.touches[1].clientY)/2 
+            };
             canvas.zoomToPoint(mid, initialZoom * (dist / initialDist));
-        } else if (e.touches.length === 1 && canvas.isDragging) {
+        } else if (e.touches.length === 1) {
             const touch = e.touches[0];
-            
-            if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 2) {
-                clearTimeout(calTimer);
-                if (isScaleMode) startCalTimer(touch); 
+            const dx = touch.clientX - lastX;
+            const dy = touch.clientY - lastY;
+
+            if (Math.hypot(dx, dy) > 3) {
+                clearTimeout(calTimer); // Отмена точки при движении
             }
 
             const vpt = canvas.viewportTransform;
-            vpt[4] += touch.clientX - lastX;
-            vpt[5] += touch.clientY - lastY;
+            vpt[4] += dx;
+            vpt[5] += dy;
             canvas.requestRenderAll();
+            
+            if (isScaleMode && !isMultiTouch) updateMagnifierUI(touch);
             
             lastX = touch.clientX;
             lastY = touch.clientY;
-            
-            if (isScaleMode) updateMagnifierUI(touch);
         }
         e.preventDefault();
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchend', () => {
-        canvas.isDragging = false;
         clearTimeout(calTimer);
         magWrap.style.display = 'none';
+        isMultiTouch = false;
     });
 
     window.addEventListener('resize', () => {
