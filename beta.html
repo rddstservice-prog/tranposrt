@@ -320,33 +320,21 @@
         magCtx.restore();
     }
 
-    canvas.on('mouse:down', function(opt) {
-        const evt = opt.e;
-        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-        const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-        const ptr = canvas.getPointer(evt);
-        lastPosX = cX; lastPosY = cY; startPosX = cX; startPosY = cY;
-
-        if (isCalibrating) {
-            updateMagnifier(ptr);
-            calTimer = setTimeout(() => {
-                calPoints.push(ptr);
-                canvas.add(new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, isCalDot: true }));
-                if (calPoints.length === 2) {
-                    const m = prompt("Метров:", "10");
-                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
-                    toggleCalibration();
-                    syncAll();
-                }
-            }, 1000);
-        }
-        if (opt.target && opt.target.type === 'handle') {
-            rotationTarget = opt.target.handleType;
-            if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
-            return;
-        }
-        if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
-    });
+    canvas.on('mouse:wheel', function(opt) {
+    var delta = opt.e.deltaY;
+    var zoom = canvas.getZoom();
+    zoom *= 0.999 ** delta; // Плавность зума
+    
+    // Ограничение зума (от 0.01x до 20x)
+    if (zoom > 20) zoom = 20;
+    if (zoom < 0.01) zoom = 0.01;
+    
+    // Зум относительно точки курсора
+    canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+    
+    opt.e.preventDefault();
+    opt.e.stopPropagation();
+});
 
     canvas.on('mouse:move', function(opt) {
         const evt = opt.e;
