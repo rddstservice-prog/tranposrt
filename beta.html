@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.6</title>
+    <title>Mobile Beta v0.4.7</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
@@ -21,9 +21,10 @@
             pointer-events: none;
             display: none;
             z-index: 1000;
-            flex-direction: column-reverse; /* Надпись теперь над лупой */
+            flex-direction: column-reverse; 
             align-items: center;
-            transform: translate(-50%, -100%);
+            /* Центрируем по горизонтали и выносим вверх над точкой касания */
+            transform: translate(-50%, -100%); 
             will-change: transform, left, top;
         }
 
@@ -41,7 +42,7 @@
             background: var(--accent); color: #000; 
             padding: 4px 10px; border-radius: 4px; 
             font-size: 10px; font-weight: 900; 
-            margin-bottom: 15px; /* Отступ от лупы вниз (так как reverse) */
+            margin-bottom: 20px; /* Увеличен зазор между лупой и подсказкой */
             white-space: nowrap;
             box-shadow: 0 3px 10px rgba(0,0,0,0.3);
         }
@@ -56,7 +57,7 @@
 <body>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 8px; opacity: 0.3;">v0.4.6</div>
+        <div style="font-size: 8px; opacity: 0.3;">v0.4.7</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -93,8 +94,8 @@
     let isMultiTouch = false, rafId = null;
     let pixelsPerMeter = null;
 
-    // Смещение лупы относительно пальца вверх
-    const VISUAL_OFFSET = 220; 
+    // Смещение всей конструкции (лупа + текст) вверх от пальца
+    const TOUCH_OFFSET_Y = 60; 
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -122,38 +123,31 @@
         canvas.renderAll();
     }
 
-    // Возвращает координаты того места, куда указывает перекрестие
-    function getPointerUnderCrosshair(clientX, clientY) {
-        return canvas.getPointer({
-            clientX: clientX,
-            clientY: clientY - VISUAL_OFFSET
-        });
-    }
-
     function updateMagnifierUI(touch) {
         if (!isScaleMode || !touch || isMultiTouch) {
             magWrap.style.display = 'none';
             return;
         }
 
+        // Выравниваем строго по X пальца, Y поднимаем выше
         magWrap.style.left = `${touch.clientX}px`;
-        magWrap.style.top = `${touch.clientY - 40}px`; // Смещение от пальца для видимости самого пальца
+        magWrap.style.top = `${touch.clientY - TOUCH_OFFSET_Y}px`;
         magWrap.style.display = 'flex';
 
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
-            const ptr = getPointerUnderCrosshair(touch.clientX, touch.clientY);
+            // Берем точку точно под пальцем
+            const ptr = canvas.getPointer({ clientX: touch.clientX, clientY: touch.clientY });
             const zoom = canvas.getZoom();
             
             magCtx.save();
             magCtx.imageSmoothingEnabled = false;
             magCtx.fillStyle = "#111";
             magCtx.fillRect(0, 0, 140, 140);
-            magCtx.translate(70, 70); // Центр лупы
+            magCtx.translate(70, 70); 
             magCtx.scale(8 * zoom, 8 * zoom); 
             magCtx.translate(-ptr.x, -ptr.y);
             
-            // Рендерим всё содержимое канвы в лупу
             const objects = canvas.getObjects();
             for (let i = 0; i < objects.length; i++) {
                 objects[i].render(magCtx);
@@ -180,7 +174,7 @@
                 calTimer = setTimeout(() => {
                     if (isMultiTouch) return;
                     
-                    const ptr = getPointerUnderCrosshair(touch.clientX, touch.clientY); 
+                    const ptr = canvas.getPointer({ clientX: touch.clientX, clientY: touch.clientY }); 
                     const dot = new fabric.Circle({
                         left: ptr.x, top: ptr.y, radius: 5/canvas.getZoom(),
                         fill: '#ff3b30', stroke: 'white', strokeWidth: 2/canvas.getZoom(),
@@ -190,24 +184,20 @@
                     canvas.add(dot);
                     canvas.requestRenderAll();
                     calPoints.push({...ptr});
-                    
-                    // Обновляем изображение в лупе сразу после установки точки
                     updateMagnifierUI(touch);
 
                     if (calPoints.length === 1) {
                         hint.innerText = "Вторая точка";
                     } else if (calPoints.length === 2) { 
-                        // Расчет расстояния
                         const dx = calPoints[0].x - calPoints[1].x;
                         const dy = calPoints[0].y - calPoints[1].y;
                         const pixelDist = Math.hypot(dx, dy);
                         
-                        const inputDist = prompt("Укажите расстояние в метрах (между точками):", "100");
+                        const inputDist = prompt("Укажите расстояние в метрах:", "100");
                         const realMeters = parseFloat(inputDist) || 100;
                         
                         pixelsPerMeter = pixelDist / realMeters;
-                        alert(`Калибровка завершена: ${realMeters}м = ${Math.round(pixelDist)} пикс.`);
-                        
+                        alert(`Калибровка: ${realMeters}м = ${Math.round(pixelDist)} пикс.`);
                         toggleScaleMode(); 
                     }
                 }, 1000);
@@ -224,8 +214,7 @@
         } else if (e.touches.length === 1) {
             if (isScaleMode) {
                 updateMagnifierUI(touch);
-                // Отмена установки если палец сильно "уплыл" (>10px)
-                if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 10) {
+                if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 8) {
                     clearTimeout(calTimer);
                 }
             } else {
