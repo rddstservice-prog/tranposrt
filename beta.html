@@ -35,7 +35,7 @@
 
 <div id="hub-screen">
     <div style="font-size: 24px; font-weight: bold; color: var(--blue); margin-bottom: 10px;">v0.1.0-beta</div>
-    <div style="font-size: 12px; color: #777; margin-bottom: 40px;">HEAVY TRANSPORT | BUILD 10-48</div>
+    <div style="font-size: 12px; color: #777; margin-bottom: 40px;">HEAVY TRANSPORT | BUILD 11-49</div>
     <button class="btn-blue" style="width: auto; padding: 15px 40px; border-radius: 30px;" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
@@ -76,43 +76,46 @@
 <script>
     const tg = window.Telegram?.WebApp; if(tg) { tg.expand(); tg.ready(); }
     const wrap = document.getElementById('canvas-wrap');
-    const canvas = new fabric.Canvas('c', { backgroundColor: '#333', selection: true, allowTouchScrolling: true, imageSmoothingEnabled: false });
+    
+    // Инициализация канваса с оптимизацией под тач
+    const canvas = new fabric.Canvas('c', { 
+        backgroundColor: '#333', 
+        selection: false, 
+        allowTouchScrolling: false, // Отключаем скролл браузера, чтобы работал зум
+        imageSmoothingEnabled: false 
+    });
+
     const magEl = document.getElementById('magnifier');
     const magCtx = document.getElementById('mag-canvas').getContext('2d');
 
     let PX_METER = 40, isCalibrating = false, calPoints = [], calTimer = null;
     let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargoIndex = -1;
-    let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, rotationTarget = null;
+    let isDraggingCanvas = false, lastPosX, lastPosY, rotationTarget = null;
 
     function startEditor() { document.getElementById('hub-screen').style.display = 'none'; document.getElementById('main-app').style.display = 'flex'; resizeCanvas(); }
     function resizeCanvas() { canvas.setDimensions({ width: wrap.clientWidth, height: wrap.clientHeight }); canvas.requestRenderAll(); }
     window.addEventListener('resize', resizeCanvas);
 
-    // --- ИСПРАВЛЕННЫЙ ЗУМ ---
-    canvas.on('mouse:wheel', function(opt) {
-        let delta = opt.e.deltaY;
-        let zoom = canvas.getZoom();
-        zoom *= 0.999 ** delta;
-        if (zoom > 20) zoom = 20; if (zoom < 0.01) zoom = 0.01;
-        canvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
-        opt.e.preventDefault(); opt.e.stopPropagation();
-    });
-
+    // --- СИСТЕМА СИНХРОНИЗАЦИИ ---
     function syncAll() {
         const parts = canvas.getObjects().filter(o => o.type === 'part');
         const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
         const truck = parts.find(p => p.vehicleType === 'truck');
         const modules = parts.filter(p => p.vehicleType === 'mod');
         const sc = PX_METER / 40;
+        
         canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
         parts.forEach(p => p.set({ scaleX: sc, scaleY: sc }));
+
         if (truck && modules.length > 0) {
             const mod0 = modules[0];
             const radM = (mod0.angle * Math.PI) / 180;
             const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
             const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
             const radT = (truck.angle * Math.PI) / 180;
+
             truck.set({ left: kpX - (truck.b_val * sc) * Math.cos(radT), top: kpY - (truck.b_val * sc) * Math.sin(radT) });
+            
             modules.forEach((mod, idx) => {
                 if (idx > 0) {
                     const prev = modules[idx-1];
@@ -121,6 +124,7 @@
                 }
                 mod.setCoords();
             });
+
             cargos.forEach(cargo => {
                 const rad = (mod0.angle * Math.PI) / 180;
                 const lastMod = modules[modules.length - 1];
@@ -129,6 +133,7 @@
                 cargo.set({ left: centerX + (cargo.offsetMeters * PX_METER) * Math.cos(rad), top: centerY + (cargo.offsetMeters * PX_METER) * Math.sin(rad), angle: mod0.angle, scaleX: sc, scaleY: sc });
                 cargo.setCoords();
             });
+
             createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck');
             const lastMod = modules[modules.length-1];
             const radL = (lastMod.angle * Math.PI) / 180;
@@ -139,15 +144,130 @@
     }
 
     function createHandle(x, y, t, idx = -1) {
-        canvas.add(new fabric.Circle({ left: x, top: y, radius: 12, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: idx, hasControls: false }));
+        canvas.add(new fabric.Circle({ left: x, top: y, radius: 14, fill: '#2196F3', stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', type: 'handle', handleType: t, cargoIdx: idx, hasControls: false, selectable: false }));
     }
 
+    // --- МОБИЛЬНОЕ УПРАВЛЕНИЕ (TOUCH ONLY) ---
+    
+    canvas.on('touch:gesture', function(opt) {
+        if (opt.e.touches && opt.e.touches.length === 2) {
+            isDraggingCanvas = false; // Отключаем таскание при зуме
+            let zoom = canvas.getZoom() * opt.self.scale;
+            if (zoom > 20) zoom = 20;
+            if (zoom < 0.01) zoom = 0.01;
+            canvas.zoomToPoint({ x: opt.self.x, y: opt.self.y }, zoom);
+            canvas.requestRenderAll();
+        }
+    });
+
+    canvas.on('touch:drag', function(opt) {
+        const evt = opt.e;
+        if (evt.touches && evt.touches.length === 1) {
+            const touch = evt.touches[0];
+            const ptr = canvas.getPointer(evt);
+
+            if (rotationTarget) {
+                updateRotation(ptr);
+            } else if (isDraggingCanvas) {
+                const vpt = canvas.viewportTransform;
+                vpt[4] += touch.clientX - lastPosX;
+                vpt[5] += touch.clientY - lastPosY;
+                canvas.requestRenderAll();
+            }
+            lastPosX = touch.clientX;
+            lastPosY = touch.clientY;
+            
+            if (isCalibrating) updateMagnifier(ptr);
+        }
+    });
+
+    canvas.on('touch:longpress', function(opt) {
+        if (isCalibrating) {
+            const ptr = canvas.getPointer(opt.e);
+            const dot = new fabric.Circle({ 
+                left: ptr.x, top: ptr.y, radius: 4/canvas.getZoom(), fill: '#2196F3', stroke: 'white', strokeWidth: 1/canvas.getZoom(), originX: 'center', originY: 'center', selectable: false, isCalDot: true 
+            });
+            calPoints.push(ptr);
+            canvas.add(dot);
+            if (calPoints.length === 2) {
+                const m = prompt("Метров:");
+                if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
+                toggleCalibration();
+                syncAll();
+            }
+        }
+    });
+
+    // Дублируем начало касания для инициализации координат
+    canvas.on('mouse:down', function(opt) {
+        const evt = opt.e;
+        const touch = evt.touches ? evt.touches[0] : evt;
+        lastPosX = touch.clientX;
+        lastPosY = touch.clientY;
+
+        if (opt.target && opt.target.type === 'handle') {
+            rotationTarget = opt.target.handleType;
+            if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx;
+        } else {
+            isDraggingCanvas = true;
+        }
+        
+        if (isCalibrating) {
+            magEl.style.display = 'block';
+            updateMagnifier(canvas.getPointer(evt));
+        }
+    });
+
+    canvas.on('mouse:up', function() {
+        rotationTarget = null;
+        isDraggingCanvas = false;
+        magEl.style.display = 'none';
+    });
+
+    function updateRotation(ptr) {
+        const parts = canvas.getObjects().filter(o => o.type === 'part'),
+              truck = parts.find(p => p.vehicleType === 'truck'),
+              mod0 = parts.find(p => p.vehicleType === 'mod'),
+              sc = PX_METER/40;
+        
+        if (rotationTarget === 'truck' && truck && mod0) {
+            const radM = (mod0.angle*Math.PI)/180, kpX = mod0.left+(mod0.f_val*sc)*Math.cos(radM), kpY = mod0.top+(mod0.f_val*sc)*Math.sin(radM);
+            truck.angle = Math.atan2(kpY-ptr.y, kpX-ptr.x)*180/Math.PI;
+        } else if (rotationTarget === 'trailer' && mod0) {
+            const radM = (mod0.angle*Math.PI)/180, kpX = mod0.left+(mod0.f_val*sc)*Math.cos(radM), kpY = mod0.top+(mod0.f_val*sc)*Math.sin(radM);
+            parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y-kpY, ptr.x-kpX)*180/Math.PI);
+        } else if (rotationTarget === 'cargo') {
+            const c = canvas.getObjects().filter(o => o.type === 'cargo')[activeCargoIndex];
+            if(c && mod0) {
+                const rad = (mod0.angle*Math.PI)/180;
+                c.offsetMeters += ((ptr.x-c.left)*Math.cos(rad)+(ptr.y-c.top)*Math.sin(rad))/PX_METER;
+            }
+        }
+        syncAll();
+    }
+
+    function updateMagnifier(ptr) {
+        if (!isCalibrating) return;
+        const size = 180, zoom = 3.0; 
+        magCtx.clearRect(0,0,size,size);
+        magCtx.save();
+        magCtx.translate(size/2, size/2);
+        magCtx.scale(zoom, zoom);
+        magCtx.translate(-ptr.x, -ptr.y);
+        canvas.getObjects().forEach(obj => {
+            if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cargo' || obj.isCalDot) obj.render(magCtx);
+        });
+        magCtx.restore();
+    }
+
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
     function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
         const vpt = canvas.viewportTransform;
         let cX = (canvas.width/2 - vpt[4])/canvas.getZoom();
         let cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
         let lastAngle = canvas.getObjects().filter(o => o.type === 'part').pop()?.angle || 0;
         let obj;
+        
         if(isMulti) {
             const bl = l*40, bw = (w*40)/2;
             obj = new fabric.Group([
@@ -164,100 +284,19 @@
         } else {
             obj = new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: c, stroke: 'black', originY: 'center' })], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b*40, f_val: (f||0)*40, originX: 'left', originY: 'center' });
         }
-        obj.set({ hasControls: false, opacity: GLOBAL_OPACITY }); canvas.add(obj); syncAll();
+        obj.set({ hasControls: false, selectable: false, opacity: GLOBAL_OPACITY }); 
+        canvas.add(obj); 
+        syncAll();
     }
 
     function addBeams() { let w = prompt('Ширина (3.0-5.5):', '3.0'); if(w) { let l = prompt('Длина (4.0-30.0):', '8.5'); if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true); } }
-    function addCargo() { let l = prompt('Длина:', '10.0'); let w = prompt('Ширина:', '3.5'); if(l && w) { canvas.add(new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: '#FFD700', stroke: 'black', originX: 'center', originY: 'center' }), new fabric.Line([-15,0,15,0],{stroke:'black'}), new fabric.Line([0,-15,0,15],{stroke:'black'})], { type: 'cargo', offsetMeters: 0, originX: 'center', originY: 'center', hasControls: false, opacity: CARGO_OPACITY })); syncAll(); } }
-    
-    function toggleCalibration() { 
-        isCalibrating = !isCalibrating; 
-        calPoints = []; 
-        canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); 
-        document.getElementById('cal-msg').style.display = isCalibrating ? 'block' : 'none'; 
-        document.getElementById('cal-btn').style.background = isCalibrating ? '#e6a100' : ''; 
-    }
-
-    // --- ИСПРАВЛЕННАЯ ЛУПА ---
-    function updateMagnifier(ptr) {
-        if (!isCalibrating) return;
-        magEl.style.display = 'block';
-        const size = 180, zoom = 3.0; 
-        magCtx.clearRect(0,0,size,size);
-        magCtx.save();
-        magCtx.translate(size/2, size/2);
-        magCtx.scale(zoom, zoom);
-        magCtx.translate(-ptr.x, -ptr.y);
-        
-        // Рисуем всё, включая карту и точки
-        canvas.getObjects().forEach(obj => {
-            if (obj.type === 'map' || obj.type === 'part' || obj.type === 'cargo' || obj.isCalDot) {
-                obj.render(magCtx);
-            }
-        });
-        magCtx.restore();
-        
-        // Рисуем статичное перекрестие в самой лупе поверх всего
-        magCtx.strokeStyle = '#2196F3';
-        magCtx.lineWidth = 2;
-        magCtx.beginPath();
-        magCtx.moveTo(size/2 - 15, size/2); magCtx.lineTo(size/2 + 15, size/2);
-        magCtx.moveTo(size/2, size/2 - 15); magCtx.lineTo(size/2, size/2 + 15);
-        magCtx.stroke();
-    }
-
-    canvas.on('mouse:down', function(opt) {
-        const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX; const cY = evt.touches ? evt.touches[0].clientY : evt.clientY; const ptr = canvas.getPointer(evt);
-        lastPosX = cX; lastPosY = cY; startPosX = cX; startPosY = cY;
-        
-        if (isCalibrating) {
-            updateMagnifier(ptr);
-            calTimer = setTimeout(() => {
-                const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 4, fill: '#2196F3', stroke: 'white', strokeWidth: 1, originX: 'center', originY: 'center', selectable: false, isCalDot: true });
-                calPoints.push(ptr); 
-                canvas.add(dot);
-                if (calPoints.length === 2) { 
-                    const m = prompt("Метров:"); 
-                    if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m); 
-                    toggleCalibration(); 
-                    syncAll(); 
-                }
-            }, 800);
-        }
-        if (opt.target && opt.target.type === 'handle') { rotationTarget = opt.target.handleType; if (rotationTarget === 'cargo') activeCargoIndex = opt.target.cargoIdx; return; }
-        if (!opt.target || opt.target.type === 'map') isDraggingCanvas = true;
-    });
-
-    canvas.on('mouse:move', function(opt) {
-        const evt = opt.e; const cX = evt.touches ? evt.touches[0].clientX : evt.clientX; const cY = evt.touches ? evt.touches[0].clientY : evt.clientY; const ptr = canvas.getPointer(evt);
-        if (isCalibrating) { 
-            updateMagnifier(ptr); 
-            // Если начали двигать палец слишком сильно, отменяем таймер постановки точки
-            if (Math.hypot(cX - startPosX, cY - startPosY) > 15) clearTimeout(calTimer); 
-        }
-        if (rotationTarget) {
-            const parts = canvas.getObjects().filter(o => o.type === 'part'), truck = parts.find(p => p.vehicleType === 'truck'), mod0 = parts.find(p => p.vehicleType === 'mod'), sc = PX_METER/40;
-            if (rotationTarget === 'truck' && truck && mod0) { const radM = (mod0.angle*Math.PI)/180, kpX = mod0.left+(mod0.f_val*sc)*Math.cos(radM), kpY = mod0.top+(mod0.f_val*sc)*Math.sin(radM); truck.angle = Math.atan2(kpY-ptr.y, kpX-ptr.x)*180/Math.PI; }
-            else if (rotationTarget === 'trailer' && mod0) { const radM = (mod0.angle*Math.PI)/180, kpX = mod0.left+(mod0.f_val*sc)*Math.cos(radM), kpY = mod0.top+(mod0.f_val*sc)*Math.sin(radM); parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y-kpY, ptr.x-kpX)*180/Math.PI); }
-            else if (rotationTarget === 'cargo') { const c = canvas.getObjects().filter(o => o.type === 'cargo')[activeCargoIndex]; if(c && mod0) { const rad = (mod0.angle*Math.PI)/180; c.offsetMeters += ((ptr.x-c.left)*Math.cos(rad)+(ptr.y-c.top)*Math.sin(rad))/PX_METER; } }
-            syncAll();
-        } else if (isDraggingCanvas) { const vpt = canvas.viewportTransform; vpt[4] += cX-lastPosX; vpt[5] += cY-lastPosY; canvas.requestRenderAll(); }
-        lastPosX = cX; lastPosY = cY;
-    });
-
-    canvas.on('mouse:up', () => { 
-        clearTimeout(calTimer); 
-        magEl.style.display = 'none'; 
-        isDraggingCanvas = false; 
-        rotationTarget = null; 
-    });
-
+    function addCargo() { let l = prompt('Длина:', '10.0'); let w = prompt('Ширина:', '3.5'); if(l && w) { canvas.add(new fabric.Group([new fabric.Rect({ width: l*40, height: w*40, fill: '#FFD700', stroke: 'black', originX: 'center', originY: 'center' }), new fabric.Line([-15,0,15,0],{stroke:'black'}), new fabric.Line([0,-15,0,15],{stroke:'black'})], { type: 'cargo', offsetMeters: 0, originX: 'center', originY: 'center', hasControls: false, selectable: false, opacity: CARGO_OPACITY })); syncAll(); } }
+    function toggleCalibration() { isCalibrating = !isCalibrating; calPoints = []; canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot)); document.getElementById('cal-msg').style.display = isCalibrating ? 'block' : 'none'; document.getElementById('cal-btn').style.background = isCalibrating ? '#e6a100' : ''; }
     function changeGlobalOpacity(v) { GLOBAL_OPACITY = v; canvas.getObjects().filter(o => o.type === 'part').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
     function changeCargoOpacity(v) { CARGO_OPACITY = v; canvas.getObjects().filter(o => o.type === 'cargo').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
     function deleteSelected() { canvas.getActiveObjects().forEach(o => { if(o.type==='part'||o.type==='cargo') canvas.remove(o); }); syncAll(); }
     function clearVehiclesOnly() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(o => { if(o.type==='part'||o.type==='cargo'||o.type==='handle') canvas.remove(o); }); syncAll(); } }
     
-    // --- ИСПРАВЛЕННАЯ ЗАГРУЗКА КАРТЫ (СЛОИ) ---
     function loadMap(e) { 
         const file = e.target.files[0]; if (!file) return; 
         const reader = new FileReader(); 
@@ -265,7 +304,7 @@
             canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m)); 
             img.set({ selectable: false, evented: false, type: 'map' }); 
             canvas.add(img);
-            img.sendToBack(); // Отправляем в самый низ
+            img.sendToBack();
             const scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height); 
             canvas.setZoom(scale); 
             canvas.requestRenderAll(); 
