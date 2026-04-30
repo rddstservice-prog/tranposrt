@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.4</title>
+    <title>Mobile Beta v0.4.5</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        :root { --bg: #1a1a1a; --menu-w: 70px; --accent: #FF9800; }
+        :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; }
         body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; touch-action: none; }
         #app { display: flex; width: 100vw; height: 100vh; }
         
         #sidebar { width: var(--menu-w); background: #252525; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 10px 4px; gap: 10px; z-index: 100; align-items: center; }
-        .menu-btn { width: 90%; aspect-ratio: 1/1; background: #333; border: 1px solid #444; border-radius: 12px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; -webkit-tap-highlight-color: transparent; }
+        .menu-btn { width: 85%; aspect-ratio: 1/1; background: #333; border: 1px solid #444; border-radius: 10px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; -webkit-tap-highlight-color: transparent; }
         .menu-btn.active { border-color: var(--accent); background: rgba(255, 152, 0, 0.2); color: var(--accent); }
 
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
@@ -23,40 +23,39 @@
             z-index: 1000;
             flex-direction: column;
             align-items: center;
-            /* Центрируем по горизонтали и поднимаем полностью над точкой касания */
             transform: translate(-50%, -100%);
             will-change: transform, left, top;
         }
 
         #magnifier { 
-            width: 200px; height: 200px; /* Немного увеличили для комфорта */
-            border: 3px solid var(--accent); 
+            width: 120px; height: 120px; /* Уменьшено почти в 2 раза */
+            border: 2px solid var(--accent); 
             border-radius: 50%; 
             overflow: hidden; 
             background: #111; 
-            box-shadow: 0 15px 50px rgba(0,0,0,0.9);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.8);
             position: relative;
         }
 
         #hint { 
             background: var(--accent); color: #000; 
-            padding: 5px 12px; border-radius: 6px; 
-            font-size: 11px; font-weight: 900; 
-            margin-top: 20px; white-space: nowrap;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+            padding: 3px 8px; border-radius: 4px; 
+            font-size: 9px; font-weight: 900; 
+            margin-top: 12px; white-space: nowrap;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.3);
         }
 
         #mag-canvas { width: 100%; height: 100%; }
 
         .crosshair { position: absolute; top: 50%; left: 50%; width: 100%; height: 100%; transform: translate(-50%, -50%); }
-        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: var(--accent); opacity: 0.7; }
-        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--accent); opacity: 0.7; }
+        .crosshair::before { content: ''; position: absolute; top: 50%; left: 0; width: 100%; height: 1px; background: var(--accent); opacity: 0.6; }
+        .crosshair::after { content: ''; position: absolute; left: 50%; top: 0; width: 1px; height: 100%; background: var(--accent); opacity: 0.6; }
     </style>
 </head>
 <body>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size: 9px; opacity: 0.3;">v0.4.4</div>
+        <div style="font-size: 8px; opacity: 0.3;">v0.4.5</div>
         <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -64,7 +63,7 @@
     <main id="canvas-container">
         <div id="magnifier-wrap">
             <div id="magnifier">
-                <canvas id="mag-canvas" width="200" height="200"></canvas>
+                <canvas id="mag-canvas" width="120" height="120"></canvas>
                 <div class="crosshair"></div>
             </div>
             <div id="hint">Удерживайте для точки</div>
@@ -75,7 +74,7 @@
 
 <script>
     const canvas = new fabric.Canvas('c', {
-        width: window.innerWidth - 70,
+        width: window.innerWidth - 65,
         height: window.innerHeight,
         backgroundColor: '#000',
         selection: false,
@@ -94,8 +93,8 @@
     let isMultiTouch = false;
     let rafId = null;
 
-    // Смещение центра лупы относительно пальца (теперь еще выше - 240px)
-    const VISUAL_OFFSET = 240; 
+    // Смещение: 180px при размере лупы в 120px дает отличный зазор для обзора
+    const VISUAL_OFFSET = 180; 
 
     function handleMapUpload(e) {
         const file = e.target.files[0];
@@ -132,14 +131,12 @@
 
     function updateMagnifierUI(touch) {
         if (!isScaleMode || !touch || isMultiTouch) {
-            // В режиме мультитача скрываем сразу, в остальных случаях управляется touchend
             if(isMultiTouch) magWrap.style.display = 'none';
             return;
         }
 
-        // Поднимаем конструкцию выше, чтобы палец вообще не перекрывал Hint
-        magWrap.style.left = `${touch.clientX - 35}px`;
-        magWrap.style.top = `${touch.clientY - 40}px`; 
+        magWrap.style.left = `${touch.clientX - 32}px`;
+        magWrap.style.top = `${touch.clientY - 30}px`; 
         magWrap.style.display = 'flex';
 
         if (rafId) cancelAnimationFrame(rafId);
@@ -150,9 +147,9 @@
             magCtx.save();
             magCtx.imageSmoothingEnabled = false;
             magCtx.fillStyle = "#111";
-            magCtx.fillRect(0, 0, 200, 200);
-            magCtx.translate(100, 100);
-            magCtx.scale(8 * zoom, 8 * zoom); 
+            magCtx.fillRect(0, 0, 120, 120);
+            magCtx.translate(60, 60);
+            magCtx.scale(10 * zoom, 10 * zoom); // Зум чуть больше, т.к. лупа меньше
             magCtx.translate(-ptr.x, -ptr.y);
             
             const objects = canvas.getObjects();
@@ -192,8 +189,6 @@
                     canvas.add(dot);
                     canvas.requestRenderAll();
                     calPoints.push({...ptr});
-                    
-                    // Обновляем лупу, чтобы увидеть поставленную точку, НЕ ЗАКРЫВАЯ её
                     updateMagnifierUI(touch);
 
                     if (calPoints.length === 1) hint.innerText = "Вторая точка";
@@ -212,7 +207,7 @@
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            canvas.zoomToPoint({ x: midX - 70, y: midY }, initialZoom * (dist / initialDist));
+            canvas.zoomToPoint({ x: midX - 65, y: midY }, initialZoom * (dist / initialDist));
             const vpt = canvas.viewportTransform;
             vpt[4] += (midX - lastMidX); vpt[5] += (midY - lastMidY);
             canvas.requestRenderAll();
@@ -233,14 +228,13 @@
 
     canvas.upperCanvasEl.addEventListener('touchend', () => {
         clearTimeout(calTimer);
-        // Лупа закрывается ТОЛЬКО когда палец полностью убран
         magWrap.style.display = 'none';
         isMultiTouch = false;
         if (rafId) cancelAnimationFrame(rafId);
     });
 
     window.addEventListener('resize', () => {
-        canvas.setDimensions({ width: window.innerWidth - 70, height: window.innerHeight });
+        canvas.setDimensions({ width: window.innerWidth - 65, height: window.innerHeight });
     });
 </script>
 </body>
