@@ -10,83 +10,75 @@
     
     <style>
         :root { --red: #A2231D; --border: #444; --blue: #2196F3; }
+        
         * { box-sizing: border-box; -webkit-user-select: none; margin: 0; padding: 0; }
         
         body { 
-            font-family: sans-serif; 
-            background: #000; 
-            color: white; 
-            display: flex; 
-            height: 100dvh; 
-            width: 100vw; 
-            overflow: hidden; 
+            font-family: sans-serif; background: #000; color: white; 
+            display: flex; height: 100dvh; width: 100vw; overflow: hidden; 
         }
 
+        /* Экраны */
         #hub-screen {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: #111; z-index: 1000; display: flex; flex-direction: column;
             align-items: center; justify-content: center; padding: 20px;
         }
 
-        #main-app { 
-            display: none; /* Включается через JS */
-            width: 100%; 
-            height: 100%; 
-            flex-direction: row; 
-        }
+        #main-app { display: none; width: 100%; height: 100%; flex-direction: row; }
         
-        /* ИСПРАВЛЕННЫЙ САЙДБАР */
+        /* Сайдбар со скроллом */
         #sidebar { 
-            width: 115px; 
-            min-width: 115px; 
-            background: #222; 
-            border-right: 1px solid var(--border); 
-            display: flex; 
-            flex-direction: column; 
-            padding: 10px 5px; 
-            gap: 8px; 
-            z-index: 999; 
-            overflow-y: auto !important; 
-            overflow-x: hidden;
-            -webkit-overflow-scrolling: touch; 
-            height: 100%;
+            width: 115px; min-width: 115px; background: #222; 
+            border-right: 1px solid var(--border); display: flex; 
+            flex-direction: column; padding: 10px 5px; gap: 8px; z-index: 999; 
+            overflow-y: auto !important; -webkit-overflow-scrolling: touch;
             touch-action: pan-y;
         }
 
         #sidebar::-webkit-scrollbar { width: 4px; }
         #sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
         
-        button { width: 100%; padding: 12px 2px; border: none; border-radius: 6px; font-size: 10px; font-weight: bold; cursor: pointer; text-transform: uppercase; color: white; flex-shrink: 0; }
-        .btn-tool { background: #444; } .btn-white { background: #fff; color: #000; } .btn-red { background: var(--red); } .btn-blue { background: var(--blue); } .btn-danger { background: #551111; }
+        button { 
+            width: 100%; padding: 12px 2px; border: none; border-radius: 6px; 
+            font-size: 10px; font-weight: bold; cursor: pointer; 
+            text-transform: uppercase; color: white; flex-shrink: 0; 
+        }
+        .btn-tool { background: #444; } 
+        .btn-white { background: #fff; color: #000; } 
+        .btn-red { background: var(--red); } 
+        .btn-blue { background: var(--blue); } 
+        .btn-danger { background: #551111; }
+        
         .section-label { font-size: 8px; color: #777; text-align: center; margin-top: 5px; text-transform: uppercase; flex-shrink: 0; }
         
-        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; height: 100%; }
-        #c { touch-action: none; }
+        #canvas-wrap { flex-grow: 1; position: relative; background: #333; overflow: hidden; }
+        #c { touch-action: none; } /* Карта не скроллится браузером */
+        
+        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; flex-shrink: 0; }
+        input[type=range] { width: 100%; accent-color: var(--blue); }
 
-        .opacity-wrap { padding: 5px; background: #333; border-radius: 6px; margin-top: 5px; flex-shrink: 0; }
-        #op-slider, #cargo-op-slider { width: 100%; cursor: pointer; accent-color: var(--blue); }
-
-        /* Окно сообщений */
+        /* Оверлеи */
         .overlay-msg { 
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%); 
             background: rgba(0,0,0,0.85); color: white; padding: 10px 20px; 
-            border-radius: 25px; font-size: 11px; z-index: 100; 
-            display: none; pointer-events: none; border: 2px solid var(--blue); 
+            border-radius: 25px; font-size: 11px; z-index: 100; display: none; 
+            pointer-events: none; border: 2px solid var(--blue); 
         }
         
-        /* Лупа */
         #magnifier { 
             position: absolute; top: 10px; left: 10px; width: 180px; height: 180px; 
             border: 4px solid var(--blue); border-radius: 50%; overflow: hidden; 
             background: #111; display: none; z-index: 200; pointer-events: none; 
             box-shadow: 0 0 30px rgba(0,0,0,0.7); 
         }
-        #mag-canvas { position: absolute; top: 0; left: 0; }
         #mag-crosshair { 
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-            width: 30px; height: 30px; pointer-events: none; 
+            width: 30px; height: 30px; 
         }
-        #mag-crosshair::before, #mag-crosshair::after { content: ''; position: absolute; background: var(--blue); }
+        #mag-crosshair::before, #mag-crosshair::after { 
+            content: ''; position: absolute; background: var(--blue); 
+        }
         #mag-crosshair::before { width: 100%; height: 2px; top: 14px; left: 0; }
         #mag-crosshair::after { height: 100%; width: 2px; left: 14px; top: 0; }
     </style>
@@ -95,7 +87,7 @@
 
 <div id="hub-screen">
     <div style="font-size: 24px; font-weight: bold; color: var(--blue); margin-bottom: 10px;">v0.1.0-beta</div>
-    <div style="font-size: 12px; color: #777; margin-bottom: 40px;">HEAVY TRANSPORT | BUILD 10-18</div>
+    <div style="font-size: 12px; color: #777; margin-bottom: 40px;">HEAVY TRANSPORT | BUILD 10-27</div>
     <button class="btn-blue" style="width: auto; padding: 15px 40px; border-radius: 30px;" onclick="startEditor()">ПЕРЕЙТИ К ТЕСТАМ</button>
 </div>
 
@@ -163,6 +155,11 @@
     const magEl = document.getElementById('magnifier');
     const magCtx = document.getElementById('mag-canvas').getContext('2d');
 
+    // Глобальные переменные логики
+    let PX_METER = 40, isCalibrating = false, calPoints = [], calTimer = null;
+    let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargoIndex = -1;
+    let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, rotationTarget = null, lastDistance = 0;
+
     function startEditor() {
         document.getElementById('hub-screen').style.display = 'none';
         document.getElementById('main-app').style.display = 'flex';
@@ -175,17 +172,167 @@
     }
     window.addEventListener('resize', resizeCanvas);
 
-    // --- ЛОГИКА ---
-    let PX_METER = 40, isCalibrating = false, calPoints = [], calTimer = null;
-    let GLOBAL_OPACITY = 0.6, CARGO_OPACITY = 0.6, activeCargoIndex = -1;
-    let isDraggingCanvas = false, lastPosX, lastPosY, startPosX, startPosY, rotationTarget = null, lastDistance = 0;
+    // --- ЛОГИКА СТЫКОВКИ И ОБНОВЛЕНИЯ ---
+    function syncAll() {
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
+        const map = canvas.getObjects().find(o => o.type === 'map');
+        const truck = parts.find(p => p.vehicleType === 'truck');
+        const modules = parts.filter(p => p.vehicleType === 'mod');
+        const sc = PX_METER / 40;
+        
+        if(map) map.sendToBack();
+        canvas.getObjects().filter(o => o.type === 'handle').forEach(h => canvas.remove(h));
+        
+        parts.forEach(p => p.set({ scaleX: sc, scaleY: sc }));
 
+        if (truck && modules.length > 0) {
+            const mod0 = modules[0];
+            const radM = (mod0.angle * Math.PI) / 180;
+            const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+            const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+            const radT = (truck.angle * Math.PI) / 180;
+
+            truck.set({ 
+                left: kpX - (truck.b_val * sc) * Math.cos(radT), 
+                top: kpY - (truck.b_val * sc) * Math.sin(radT) 
+            });
+
+            modules.forEach((mod, idx) => {
+                if (idx > 0) {
+                    const prev = modules[idx-1];
+                    const radP = (prev.angle * Math.PI) / 180;
+                    mod.set({ 
+                        left: prev.left + ((prev.b_val - mod.f_val) * sc) * Math.cos(radP), 
+                        top: prev.top + ((prev.b_val - mod.f_val) * sc) * Math.sin(radP) 
+                    });
+                }
+                mod.setCoords();
+            });
+            
+            // Груз
+            cargos.forEach(cargo => {
+                const rad = (mod0.angle * Math.PI) / 180;
+                const lastMod = modules[modules.length - 1];
+                const centerX = (mod0.left + (lastMod.left + (lastMod.b_val * sc) * Math.cos(rad))) / 2;
+                const centerY = (mod0.top + (lastMod.top + (lastMod.b_val * sc) * Math.sin(rad))) / 2;
+                
+                cargo.set({
+                    left: centerX + (cargo.offsetMeters * PX_METER) * Math.cos(rad),
+                    top: centerY + (cargo.offsetMeters * PX_METER) * Math.sin(rad),
+                    angle: mod0.angle, scaleX: sc, scaleY: sc
+                });
+                cargo.setCoords();
+            });
+
+            // Ручки управления
+            createHandle(truck.left + (1.2*40*sc) * Math.cos(radT), truck.top + (1.2*40*sc) * Math.sin(radT), 'truck');
+            const lastMod = modules[modules.length-1];
+            const radL = (lastMod.angle * Math.PI) / 180;
+            createHandle((lastMod.left + (lastMod.b_val * sc) * Math.cos(radL)) - (1.2*40*sc) * Math.cos(radL), (lastMod.top + (lastMod.b_val * sc) * Math.sin(radL)) - (1.2*40*sc) * Math.sin(radL), 'trailer');
+            
+            cargos.forEach((c, i) => createHandle(c.left, c.top, 'cargo', i));
+        }
+        canvas.renderAll();
+    }
+
+    function createHandle(x, y, t, idx = -1) {
+        const h = new fabric.Circle({ 
+            left: x, top: y, radius: 10, fill: var(--blue), stroke: 'white', 
+            strokeWidth: 2, originX: 'center', originY: 'center', 
+            type: 'handle', handleType: t, cargoIdx: idx, hasControls: false 
+        });
+        canvas.add(h);
+    }
+
+    // --- ДОБАВЛЕНИЕ ТЕХНИКИ (СЛОЖНАЯ ПРОРИСОВКА) ---
+    function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
+        const sc = PX_METER / 40;
+        const vpt = canvas.viewportTransform;
+        let cX = (canvas.width/2 - vpt[4])/canvas.getZoom();
+        let cY = (canvas.height/2 - vpt[5])/canvas.getZoom();
+        
+        const parts = canvas.getObjects().filter(o => o.type === 'part');
+        let lastAngle = parts.length > 0 ? parts[parts.length-1].angle : 0;
+
+        let obj;
+        if(isMulti) {
+            // Балки
+            const bl = l*40, bw = (w*40)/2;
+            obj = new fabric.Group([
+                new fabric.Rect({left:24, top:-bw, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
+                new fabric.Rect({left:24, top:bw-18, width:bl, height:18, fill:'#A2231D', stroke:'black'}),
+                new fabric.Rect({left:0, top:-60, width:24, height:120, fill:'#444'}),
+                new fabric.Rect({left:bl+24, top:-60, width:24, height:120, fill:'#444'})
+            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: 'mod', b_val: (l+1.2)*40, f_val: 0 });
+        } else if (t === 'truck') {
+            // Тягач с вентилятором и осями
+            const tL = l * 40, tW = w * 40, wL = 1.12 * 40;
+            const axX = [1.3 * 40, 3.9 * 40, 5.343 * 40, 6.763 * 40];
+            const cabL = tL * 0.3, instL = axX[1] - cabL - wL/2;
+            const fanBox = instL * 0.85;
+
+            let components = [
+                new fabric.Rect({ width: tL, height: tW, fill: 'white', stroke: 'black', originY: 'center' }),
+                new fabric.Rect({ left: cabL + (instL-fanBox)/2, top: -fanBox/2, width: fanBox, height: fanBox, fill: '#ddd', stroke: '#555' }),
+                new fabric.Circle({ radius: fanBox*0.3, left: cabL + instL/2, top: 0, originX: 'center', originY: 'center', fill: '#f0f0f0', stroke: '#333' })
+            ];
+
+            axX.forEach((x, idx) => {
+                const hW = (idx < 2) ? 13 : 26;
+                [-(tW/2), (tW/2-hW)].forEach(y => {
+                    components.push(new fabric.Rect({ left: x - wL/2, top: y, width: wL, height: hW, fill: '#222', rx: 4 }));
+                });
+            });
+
+            obj = new fabric.Group(components, { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center' });
+        } else {
+            // Обычные модули / THP
+            const mL = l * 40, mW = w * 40;
+            obj = new fabric.Group([
+                new fabric.Rect({ width: mL, height: mW, fill: c, stroke: 'black', originY: 'center' })
+            ], { left: cX, top: cY, angle: lastAngle, type: 'part', vehicleType: t, b_val: b * 40, f_val: (f||0) * 40, originX: 'left', originY: 'center' });
+        }
+
+        obj.set({ hasControls: false, opacity: GLOBAL_OPACITY });
+        canvas.add(obj);
+        syncAll();
+    }
+
+    function addBeams() {
+        let w = prompt('Ширина (3.0 - 5.5):', '3.0'); 
+        if(w) { 
+            let l = prompt('Длина (4.0 - 30.0):', '8.5'); 
+            if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true);
+        }
+    }
+
+    function addCargo() {
+        let l = prompt('Длина груза (м):', '10.0'); if (!l) return;
+        let w = prompt('Ширина груза (м):', '3.5'); if (!w) return;
+        
+        const cargo = new fabric.Group([
+            new fabric.Rect({ width: l*40, height: w*40, fill: '#FFD700', stroke: 'black', originX: 'center', originY: 'center' }),
+            new fabric.Line([-15, 0, 15, 0], { stroke: 'black' }),
+            new fabric.Line([0, -15, 0, 15], { stroke: 'black' })
+        ], { type: 'cargo', offsetMeters: 0, originX: 'center', originY: 'center', hasControls: false, opacity: CARGO_OPACITY });
+        
+        canvas.add(cargo);
+        syncAll();
+    }
+
+    // --- УПРАВЛЕНИЕ МАСШТАБОМ И КАМЕРОЙ ---
     function toggleCalibration() {
         isCalibrating = !isCalibrating;
         calPoints = [];
         canvas.getObjects().filter(o => o.isCalDot).forEach(dot => canvas.remove(dot));
         document.getElementById('cal-msg').style.display = isCalibrating ? 'block' : 'none';
         document.getElementById('cal-btn').style.background = isCalibrating ? '#e6a100' : '';
+    }
+
+    function addCalDot(ptr) {
+        const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: var(--blue), stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, isCalDot: true });
+        canvas.add(dot);
     }
 
     function updateMagnifier(ptr) {
@@ -203,13 +350,15 @@
         magCtx.restore();
     }
 
+    // Эвенты мыши
     canvas.on('mouse:down', function(opt) {
         const evt = opt.e;
         const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
         const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         const ptr = canvas.getPointer(evt);
         
-        startPosX = lastPosX = cX; startPosY = lastPosY = cY;
+        lastPosX = cX; lastPosY = cY;
+        startPosX = cX; startPosY = cY;
 
         if (isCalibrating) {
             updateMagnifier(ptr);
@@ -217,7 +366,7 @@
                 calPoints.push(ptr);
                 addCalDot(ptr);
                 if (calPoints.length === 2) {
-                    const m = prompt("Введите расстояние между точками в метрах:", "10");
+                    const m = prompt("Метров между точками:", "10");
                     if (m) PX_METER = Math.hypot(calPoints[0].x - calPoints[1].x, calPoints[0].y - calPoints[1].y) / parseFloat(m);
                     toggleCalibration();
                     syncAll();
@@ -236,25 +385,48 @@
 
     canvas.on('mouse:move', function(opt) {
         const evt = opt.e;
+        const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
+        const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
         const ptr = canvas.getPointer(evt);
+
         if (isCalibrating) {
             updateMagnifier(ptr);
-            const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-            const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
-            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) { 
-                clearTimeout(calTimer); 
-            }
+            if (Math.hypot(cX - startPosX, cY - startPosY) > 10) clearTimeout(calTimer);
         }
-        // ... остальная логика движения (zoom, drag, rotate) такая же как была ...
-        if (isDraggingCanvas) {
-            const cX = evt.touches ? evt.touches[0].clientX : evt.clientX;
-            const cY = evt.touches ? evt.touches[0].clientY : evt.clientY;
+
+        if (rotationTarget) {
+            const parts = canvas.getObjects().filter(o => o.type === 'part');
+            const truck = parts.find(p => p.vehicleType === 'truck');
+            const mod0 = parts.find(p => p.vehicleType === 'mod');
+            const sc = PX_METER / 40;
+
+            if (rotationTarget === 'truck' && truck && mod0) {
+                const radM = (mod0.angle * Math.PI) / 180;
+                const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+                const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                truck.angle = Math.atan2(kpY - ptr.y, kpX - ptr.x) * 180 / Math.PI;
+            } else if (rotationTarget === 'trailer' && mod0) {
+                const radM = (mod0.angle * Math.PI) / 180;
+                const kpX = mod0.left + (mod0.f_val * sc) * Math.cos(radM);
+                const kpY = mod0.top + (mod0.f_val * sc) * Math.sin(radM);
+                parts.filter(p => p.vehicleType === 'mod').forEach(p => p.angle = Math.atan2(ptr.y - kpY, ptr.x - kpX) * 180 / Math.PI);
+            } else if (rotationTarget === 'cargo') {
+                const cargos = canvas.getObjects().filter(o => o.type === 'cargo');
+                const c = cargos[activeCargoIndex];
+                if(c && mod0) {
+                    const rad = (mod0.angle * Math.PI) / 180;
+                    const dist = (ptr.x - c.left) * Math.cos(rad) + (ptr.y - c.top) * Math.sin(rad);
+                    c.offsetMeters += dist / PX_METER;
+                }
+            }
+            syncAll();
+        } else if (isDraggingCanvas) {
             const vpt = canvas.viewportTransform;
             vpt[4] += cX - lastPosX;
             vpt[5] += cY - lastPosY;
             canvas.requestRenderAll();
-            lastPosX = cX; lastPosY = cY;
         }
+        lastPosX = cX; lastPosY = cY;
     });
 
     canvas.on('mouse:up', () => {
@@ -264,29 +436,24 @@
         rotationTarget = null;
     });
 
-    function addCalDot(ptr) {
-        const dot = new fabric.Circle({ left: ptr.x, top: ptr.y, radius: 5, fill: var(--blue), stroke: 'white', strokeWidth: 2, originX: 'center', originY: 'center', selectable: false, isCalDot: true });
-        canvas.add(dot);
-    }
-
-    function addBeams() {
-        let w = prompt('Ширина (3.0 - 5.5):', '3.0'); 
-        if(w) { 
-            let l = prompt('Длина (4.0 - 30.0):', '8.5'); 
-            if(l) addVehicle('Балки', parseFloat(l), parseFloat(w), 'multi', parseFloat(l), 'mod', 0, true);
-        }
-    }
-
-    // Здесь должны быть ваши функции syncAll, addVehicle, addCargo и т.д.
-    // (Они остаются такими же, как в вашем рабочем коде)
-
-    function clearVehiclesOnly() {
-        if(confirm("Удалить всё?")) {
-            canvas.getObjects().forEach(obj => {
-                if (obj.type === 'part' || obj.type === 'handle' || obj.type === 'cargo') canvas.remove(obj);
-            });
+    // Вспомогательные функции
+    function changeGlobalOpacity(v) { GLOBAL_OPACITY = v; canvas.getObjects().filter(o => o.type === 'part').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
+    function changeCargoOpacity(v) { CARGO_OPACITY = v; canvas.getObjects().filter(o => o.type === 'cargo').forEach(o => o.set('opacity', v)); canvas.requestRenderAll(); }
+    function deleteSelected() { canvas.getActiveObjects().forEach(o => { if(o.type==='part'||o.type==='cargo') canvas.remove(o); }); syncAll(); }
+    function clearVehiclesOnly() { if(confirm("Удалить всё?")) { canvas.getObjects().forEach(o => { if(o.type==='part'||o.type==='cargo'||o.type==='handle') canvas.remove(o); }); syncAll(); } }
+    
+    function loadMap(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = f => fabric.Image.fromURL(f.target.result, img => {
+            canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
+            img.set({ selectable: false, evented: false, type: 'map' });
+            canvas.add(img).sendToBack();
+            const scale = Math.min((canvas.width-40)/img.width, (canvas.height-40)/img.height);
+            canvas.setZoom(scale);
             canvas.requestRenderAll();
-        }
+        });
+        reader.readAsDataURL(file);
     }
 </script>
 </body>
