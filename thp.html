@@ -255,7 +255,8 @@
                 items.push(new fabric.Text(i + "м", { left: p, top: totalPx + 10, fontSize: 24, fill: '#FF8C00', fontWeight: 'bold', originX: 'center' }));
                 items.push(new fabric.Text(i + "м", { left: -15, top: totalPx - p, fontSize: 24, fill: '#FF8C00', fontWeight: 'bold', originY: 'center', originX: 'right' }));
             }
-            currentGrid = new fabric.Group(items, { left: canvas.width/2, top: canvas.height/2, originX: 'center', originY: 'center', type: 'grid5x5', selectable: false, evented: false });
+            const center = canvas.getCenterPoint();
+            currentGrid = new fabric.Group(items, { left: center.x, top: center.y, originX: 'center', originY: 'center', type: 'grid5x5', selectable: false, evented: false });
             canvas.add(currentGrid); gridBox.style.display = 'flex'; syncAll();
         } else if (action === "2") { canvas.getObjects().filter(o => o.type === 'grid5x5').forEach(g => canvas.remove(g)); gridBox.style.display = 'none'; currentGrid = null; canvas.requestRenderAll(); }
     }
@@ -381,10 +382,109 @@
 
     canvas.on('mouse:up', () => { if (calTimer) clearTimeout(calTimer); isDraggingCanvas = false; rotationTarget = null; lastDistance = 0; syncAll(); });
 
-    function addVehicle(n, l, w, c, b, t, f, isMulti = false) { /* ... без изменений ... */ }
-    function deleteSelected() { /* ... без изменений ... */ }
-    function clearAllButMap() { /* ... без изменений ... */ }
-    function loadMap(event) { /* ... без изменений ... */ }
+    // ИСПРАВЛЕННАЯ addVehicle – координаты центра видимого экрана
+    function addVehicle(n, l, w, c, b, t, f, isMulti = false) {
+        const sc = PX_METER / 40;
+        const partWidth = w * PX_METER;
+        const partHeight = l * PX_METER;
+        const center = canvas.getCenterPoint();  // реальный центр экрана в координатах холста
+
+        if (t === 'truck') {
+            const rect = new fabric.Rect({
+                left: center.x,
+                top: center.y,
+                width: partWidth,
+                height: partHeight,
+                fill: c,
+                stroke: '#000',
+                strokeWidth: 2,
+                originX: 'center',
+                originY: 'center',
+                type: 'part',
+                vehicleType: 'truck',
+                b_val: b,
+                f_val: 0,
+                isFrozen: false,
+                opacity: GLOBAL_OPACITY
+            });
+            canvas.add(rect);
+            syncAll();
+            return;
+        }
+
+        let prevTruck = canvas.getObjects().find(o => o.type === 'part' && o.vehicleType === 'truck');
+        let prevMods = canvas.getObjects().filter(o => o.type === 'part' && o.vehicleType === 'mod');
+
+        if (t === 'mod') {
+            const newMod = new fabric.Rect({
+                left: center.x,
+                top: center.y,
+                width: partWidth,
+                height: partHeight,
+                fill: c,
+                stroke: '#000',
+                strokeWidth: 2,
+                originX: 'center',
+                originY: 'center',
+                type: 'part',
+                vehicleType: 'mod',
+                b_val: b,
+                f_val: f || 0,
+                isFrozen: false,
+                isMulti: isMulti || false,
+                opacity: GLOBAL_OPACITY
+            });
+            canvas.add(newMod);
+            syncAll();
+        }
+    }
+
+    function deleteSelected() {
+        const active = canvas.getActiveObject();
+        if (active) {
+            canvas.remove(active);
+            syncAll();
+        }
+    }
+
+    function clearAllButMap() {
+        const map = canvas.getObjects().find(o => o.type === 'map');
+        canvas.getObjects().forEach(o => { if (o !== map && !o.isFrozen) canvas.remove(o); });
+        syncAll();
+    }
+
+    // ИСПРАВЛЕННАЯ loadMap – центрирование и вписывание в экран
+    function loadMap(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function(f) {
+            fabric.Image.fromURL(f.target.result, function(img) {
+                // Удаляем старую карту, если есть
+                canvas.getObjects().filter(o => o.type === 'map').forEach(m => canvas.remove(m));
+                // Сбрасываем viewport (зум/панораму) в исходное состояние
+                canvas.viewportTransform = [1, 0, 0, 1, 0, 0];
+                // Масштабируем изображение, чтобы оно вписалось в холст с отступом 10%
+                const scale = Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9;
+                img.set({
+                    type: 'map',
+                    selectable: false,
+                    evented: false,
+                    scaleX: scale,
+                    scaleY: scale,
+                    left: canvas.width / 2,
+                    top: canvas.height / 2,
+                    originX: 'center',
+                    originY: 'center'
+                });
+                canvas.add(img);
+                img.sendToBack();
+                if (crosshair) removeCrosshair();
+                syncAll();
+            });
+        };
+        reader.readAsDataURL(file);
+    }
 </script>
 </body>
 </html>
