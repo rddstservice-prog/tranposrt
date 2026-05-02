@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.5.0 – Confirm & Line Preview</title>
+    <title>Mobile Beta v0.5.1 – Hint Button & Pan</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js">
     </script>
     <style>
@@ -83,6 +83,7 @@
             will-change: left, top;
         }
 
+        /* Подсказка – теперь кнопка */
         #hint {
             position: absolute;
             bottom: calc(100% + 6px);
@@ -90,13 +91,23 @@
             transform: translateX(-50%);
             background: var(--accent);
             color: #000;
-            padding: 3px 8px;
-            border-radius: 4px;
-            font-size: 10px;
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 12px;
             font-weight: 900;
             white-space: nowrap;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-            pointer-events: none;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+            cursor: pointer;
+            pointer-events: auto;   /* можно нажимать */
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            border: none;
+            outline: none;
+            transition: background 0.1s;
+        }
+
+        #hint:active {
+            background: #ffb74d; /* чуть светлее при нажатии */
         }
 
         .crosshair {
@@ -127,27 +138,6 @@
             height: 100%;
             width: 1px;
             transform: translateX(-0.5px);
-        }
-
-        /* Плавающая кнопка подтверждения */
-        #confirm-point-btn {
-            display: none;
-            position: absolute;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1500;
-            background: var(--accent);
-            color: #000;
-            border: none;
-            padding: 14px 28px;
-            border-radius: 30px;
-            font-weight: bold;
-            font-size: 16px;
-            letter-spacing: 0.5px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
-            cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
         }
 
         #dist-modal {
@@ -197,7 +187,7 @@
 
     <div id="app">
         <aside id="sidebar">
-            <div style="font-size: 8px; opacity: 0.3;">v0.5.0</div>
+            <div style="font-size: 8px; opacity: 0.3;">v0.5.1</div>
             <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
             <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
             <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -205,10 +195,9 @@
 
         <main id="canvas-container">
             <div id="magnifier-wrap">
-                <div id="hint">Наведите и нажмите ✔</div>
+                <div id="hint">✔ Поставить</div>
                 <div class="crosshair"></div>
             </div>
-            <button id="confirm-point-btn">✔ Поставить точку</button>
             <canvas id="c"></canvas>
         </main>
     </div>
@@ -225,12 +214,11 @@
 
         const magWrap = document.getElementById('magnifier-wrap');
         const hint = document.getElementById('hint');
-        const confirmBtn = document.getElementById('confirm-point-btn');
 
         let isScaleMode = false;
-        let calPoints = [];          // постоянные точки калибровки
-        let tempLine = null;        // временная линия от первой точки к перекрестию
-        let tempCircle = null;      // временный круг на конце линии
+        let calPoints = [];
+        let tempLine = null;
+        let tempCircle = null;
 
         let initialDist = 0,
             initialZoom = 1;
@@ -240,16 +228,14 @@
             lastMidY = 0;
         let isMultiTouch = false;
 
-        // Абсолютные координаты центра перекрестия (в пространстве окна)
         let crossCenterX_abs = 0,
             crossCenterY_abs = 0;
-        let isCrosshairActive = false; // true, когда перекрестие видим (после касания)
+        let isCrosshairActive = false;
 
         const CROSS_SIZE = 30;
         const VISUAL_OFFSET = 80;
         const HINT_RESERVE = 25;
 
-        // Очистка временных объектов
         function clearTempPreview() {
             if (tempLine) {
                 canvas.remove(tempLine);
@@ -292,11 +278,9 @@
                 canvas.getObjects('circle').forEach(o => canvas.remove(o));
                 clearTempPreview();
                 magWrap.style.display = 'none';
-                confirmBtn.style.display = 'none';
                 isCrosshairActive = false;
             } else {
-                hint.innerText = "Наведите и нажмите ✔";
-                // кнопку пока не показываем — появится при касании
+                hint.textContent = "✔ Поставить";
             }
             canvas.renderAll();
         }
@@ -310,7 +294,6 @@
             return canvas.getPointer({ clientX: screenX, clientY: screenY });
         }
 
-        // Позиционирует перекрестие и возвращает реальные абсолютные координаты центра
         function positionCrosshair(targetCenterX_abs, targetCenterY_abs) {
             if (!isScaleMode) {
                 magWrap.style.display = 'none';
@@ -345,16 +328,13 @@
             };
         }
 
-        // Обновляет временную линию и круг от первой точки до (centerX_abs, centerY_abs)
         function updateTempPreview(centerX_abs, centerY_abs) {
-            if (calPoints.length !== 1) return; // только когда есть первая точка
-
+            if (calPoints.length !== 1) return;
             const ptr = canvasPointFromScreen(centerX_abs, centerY_abs);
             const firstPoint = calPoints[0];
 
             clearTempPreview();
 
-            // Линия
             tempLine = new fabric.Line(
                 [firstPoint.x, firstPoint.y, ptr.x, ptr.y],
                 {
@@ -365,7 +345,6 @@
                     opacity: 0.8
                 }
             );
-            // Круг на конце
             tempCircle = new fabric.Circle({
                 left: ptr.x,
                 top: ptr.y,
@@ -383,7 +362,6 @@
             canvas.requestRenderAll();
         }
 
-        // Фиксирует точку в текущем положении перекрестия
         function placePoint() {
             if (!isScaleMode || !isCrosshairActive) return;
 
@@ -402,33 +380,36 @@
             canvas.add(dot);
             calPoints.push({ ...ptr });
 
-            // Убираем временные превью после фиксации
             clearTempPreview();
 
             if (calPoints.length === 1) {
-                hint.innerText = "Вторая точка";
-                // Скрываем перекрестие, чтобы начать новое прицеливание
+                hint.textContent = "✔ Вторая точка";
                 magWrap.style.display = 'none';
                 isCrosshairActive = false;
-                confirmBtn.style.display = 'none';
             } else if (calPoints.length === 2) {
                 magWrap.style.display = 'none';
-                confirmBtn.style.display = 'none';
                 isCrosshairActive = false;
                 document.getElementById('dist-modal').style.display = 'flex';
             }
             canvas.requestRenderAll();
         }
 
-        // Кнопка подтверждения
-        confirmBtn.addEventListener('click', placePoint);
-        // Также можно на клик по самой кнопке, которая абсолютно спозиционирована
+        // Клик по подсказке = поставить точку
+        hint.addEventListener('click', (e) => {
+            e.stopPropagation();
+            placePoint();
+        });
+        // Также для мобильных – touchend (предотвращаем двойное срабатывание)
+        hint.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            placePoint();
+        });
 
         canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
             if (e.touches.length >= 2) {
                 isMultiTouch = true;
                 magWrap.style.display = 'none';
-                confirmBtn.style.display = 'none';
                 isCrosshairActive = false;
                 clearTempPreview();
                 initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -442,7 +423,6 @@
                 lastY = touch.clientY;
 
                 if (isScaleMode) {
-                    // Желаемый центр перекрестия
                     const desiredCenterX = touch.clientX;
                     const desiredCenterY = touch.clientY - VISUAL_OFFSET;
                     const actualCenter = positionCrosshair(desiredCenterX, desiredCenterY);
@@ -450,10 +430,6 @@
                     crossCenterY_abs = actualCenter.y;
                     isCrosshairActive = true;
 
-                    // Показываем кнопку подтверждения
-                    confirmBtn.style.display = 'block';
-
-                    // Если уже есть первая точка, включаем превью линии
                     if (calPoints.length === 1) {
                         updateTempPreview(crossCenterX_abs, crossCenterY_abs);
                     }
@@ -475,28 +451,25 @@
                 canvas.requestRenderAll();
                 lastMidX = midX;
                 lastMidY = midY;
-            } else if (e.touches.length === 1 && isScaleMode) {
-                // Перемещаем перекрестие за пальцем
-                const desiredCenterX = touch.clientX;
-                const desiredCenterY = touch.clientY - VISUAL_OFFSET;
-                const actualCenter = positionCrosshair(desiredCenterX, desiredCenterY);
-                crossCenterX_abs = actualCenter.x;
-                crossCenterY_abs = actualCenter.y;
+            } else if (e.touches.length === 1) {
+                if (isScaleMode && isCrosshairActive) {
+                    // Панорамирование карты одним пальцем
+                    const vpt = canvas.viewportTransform;
+                    vpt[4] += (touch.clientX - lastX);
+                    vpt[5] += (touch.clientY - lastY);
+                    canvas.requestRenderAll();
 
-                // Обновляем превью, если есть первая точка
-                if (calPoints.length === 1) {
-                    updateTempPreview(crossCenterX_abs, crossCenterY_abs);
+                    // Обновляем линию-превью, т.к. координаты под перекрестием изменились
+                    if (calPoints.length === 1) {
+                        updateTempPreview(crossCenterX_abs, crossCenterY_abs);
+                    }
+                } else if (!isScaleMode) {
+                    // Обычное панорамирование
+                    const vpt = canvas.viewportTransform;
+                    vpt[4] += (touch.clientX - lastX);
+                    vpt[5] += (touch.clientY - lastY);
+                    canvas.requestRenderAll();
                 }
-
-                // Не панорамируем карту в режиме масштаба
-                lastX = touch.clientX;
-                lastY = touch.clientY;
-            } else if (e.touches.length === 1 && !isScaleMode) {
-                // Обычное панорамирование
-                const vpt = canvas.viewportTransform;
-                vpt[4] += (touch.clientX - lastX);
-                vpt[5] += (touch.clientY - lastY);
-                canvas.requestRenderAll();
                 lastX = touch.clientX;
                 lastY = touch.clientY;
             }
@@ -504,10 +477,8 @@
         }, { passive: false });
 
         canvas.upperCanvasEl.addEventListener('touchend', (e) => {
-            // В режиме масштаба перекрестие и кнопка остаются до явного нажатия кнопки или выхода из режима
             if (!isScaleMode) {
                 magWrap.style.display = 'none';
-                confirmBtn.style.display = 'none';
                 isCrosshairActive = false;
                 clearTempPreview();
             }
