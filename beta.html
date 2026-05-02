@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.5.1 – Hint Button & Pan</title>
+    <title>Mobile Beta v0.6.0 – Measure Tool</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js">
     </script>
     <style>
@@ -98,7 +98,7 @@
             white-space: nowrap;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
             cursor: pointer;
-            pointer-events: auto;   /* можно нажимать */
+            pointer-events: auto;
             -webkit-tap-highlight-color: transparent;
             user-select: none;
             border: none;
@@ -107,7 +107,7 @@
         }
 
         #hint:active {
-            background: #ffb74d; /* чуть светлее при нажатии */
+            background: #ffb74d;
         }
 
         .crosshair {
@@ -159,6 +159,7 @@
             border-radius: 12px;
             border: 1px solid var(--accent);
             text-align: center;
+            min-width: 200px;
         }
 
         .modal-content input {
@@ -173,23 +174,29 @@
             margin: 15px 0;
             outline: none;
         }
+
+        .modal-content button {
+            background: var(--accent);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
 
     <div id="dist-modal">
-        <div class="modal-content">
-            <div style="font-size: 14px; color: white;">Расстояние между точками:</div>
-            <input type="number" id="dist-input" value="100"> <span style="color: #aaa;">м</span><br>
-            <button onclick="confirmDistance()" style="background: var(--accent); border:none; padding:10px; border-radius:5px; font-weight:bold;">ПОДТВЕРДИТЬ ✔</button>
-        </div>
+        <!-- содержимое будет заполняться динамически -->
     </div>
 
     <div id="app">
         <aside id="sidebar">
-            <div style="font-size: 8px; opacity: 0.3;">v0.5.1</div>
+            <div style="font-size: 8px; opacity: 0.3;">v0.6.0</div>
             <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
-            <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
+            <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
+            <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
             <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
         </aside>
 
@@ -214,11 +221,15 @@
 
         const magWrap = document.getElementById('magnifier-wrap');
         const hint = document.getElementById('hint');
+        const distModal = document.getElementById('dist-modal');
+        const scaleBtn = document.getElementById('scale-btn');
+        const measureBtn = document.getElementById('measure-btn');
 
-        let isScaleMode = false;
+        let currentTool = 'none';   // 'none', 'scale', 'measure'
         let calPoints = [];
         let tempLine = null;
         let tempCircle = null;
+        let pixelsPerMeter = null;   // сохраняется после калибровки
 
         let initialDist = 0,
             initialZoom = 1;
@@ -248,6 +259,16 @@
             canvas.requestRenderAll();
         }
 
+        function resetToolState() {
+            calPoints = [];
+            canvas.getObjects('circle').forEach(o => canvas.remove(o));
+            clearTempPreview();
+            magWrap.style.display = 'none';
+            isCrosshairActive = false;
+            hint.textContent = "✔ Поставить";
+            canvas.renderAll();
+        }
+
         function handleMapUpload(e) {
             const file = e.target.files[0];
             if (!file) return;
@@ -270,24 +291,80 @@
             reader.readAsDataURL(file);
         }
 
-        function toggleScaleMode() {
-            isScaleMode = !isScaleMode;
-            document.getElementById('scale-btn').classList.toggle('active', isScaleMode);
-            if (!isScaleMode) {
-                calPoints = [];
-                canvas.getObjects('circle').forEach(o => canvas.remove(o));
-                clearTempPreview();
-                magWrap.style.display = 'none';
-                isCrosshairActive = false;
+        function activateTool(tool) {
+            if (currentTool === tool) {
+                // выключаем
+                currentTool = 'none';
+                scaleBtn.classList.remove('active');
+                measureBtn.classList.remove('active');
+                resetToolState();
             } else {
-                hint.textContent = "✔ Поставить";
+                currentTool = tool;
+                scaleBtn.classList.toggle('active', tool === 'scale');
+                measureBtn.classList.toggle('active', tool === 'measure');
+                resetToolState(); // очищаем предыдущее
             }
-            canvas.renderAll();
         }
 
-        function confirmDistance() {
-            document.getElementById('dist-modal').style.display = 'none';
-            toggleScaleMode();
+        function hideModal() {
+            distModal.style.display = 'none';
+        }
+
+        function showScaleModal() {
+            // Показываем окно ввода расстояния для масштаба
+            distModal.innerHTML = `
+                <div class="modal-content">
+                    <div style="font-size: 14px; color: white;">Расстояние между точками:</div>
+                    <input type="number" id="dist-input" value="100"> <span style="color: #aaa;">м</span><br>
+                    <button id="confirm-scale-btn">ПОДТВЕРДИТЬ ✔</button>
+                </div>
+            `;
+            distModal.style.display = 'flex';
+
+            document.getElementById('confirm-scale-btn').addEventListener('click', () => {
+                const realDist = parseFloat(document.getElementById('dist-input').value);
+                if (isNaN(realDist) || realDist <= 0) return;
+
+                // Вычисляем пиксельное расстояние между двумя точками
+                const p1 = calPoints[0];
+                const p2 = calPoints[1];
+                const pixelDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                pixelsPerMeter = pixelDist / realDist; // пикселей на метр
+
+                hideModal();
+                // Выходим из инструмента масштаба
+                currentTool = 'none';
+                scaleBtn.classList.remove('active');
+                measureBtn.classList.remove('active');
+                resetToolState();
+            });
+        }
+
+        function showMeasureResult() {
+            const p1 = calPoints[0];
+            const p2 = calPoints[1];
+            const pixelDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
+
+            let message;
+            if (pixelsPerMeter && pixelsPerMeter > 0) {
+                const meters = pixelDist / pixelsPerMeter;
+                message = `≈ ${meters.toFixed(2)} м`;
+            } else {
+                message = "Сначала откалибруйте масштаб (режим «Масштаб»)";
+            }
+
+            distModal.innerHTML = `
+                <div class="modal-content">
+                    <div style="font-size: 14px; color: white;">Результат измерения:</div>
+                    <div style="font-size: 22px; font-weight: bold; margin: 15px 0;">${message}</div>
+                    <button id="close-measure-btn">OK</button>
+                </div>
+            `;
+            distModal.style.display = 'flex';
+
+            document.getElementById('close-measure-btn').addEventListener('click', () => {
+                hideModal();
+            });
         }
 
         function canvasPointFromScreen(screenX, screenY) {
@@ -295,7 +372,7 @@
         }
 
         function positionCrosshair(targetCenterX_abs, targetCenterY_abs) {
-            if (!isScaleMode) {
+            if (currentTool === 'none') {
                 magWrap.style.display = 'none';
                 return { x: targetCenterX_abs, y: targetCenterY_abs };
             }
@@ -363,7 +440,7 @@
         }
 
         function placePoint() {
-            if (!isScaleMode || !isCrosshairActive) return;
+            if (currentTool === 'none' || !isCrosshairActive) return;
 
             const ptr = canvasPointFromScreen(crossCenterX_abs, crossCenterY_abs);
             const dot = new fabric.Circle({
@@ -379,7 +456,6 @@
             });
             canvas.add(dot);
             calPoints.push({ ...ptr });
-
             clearTempPreview();
 
             if (calPoints.length === 1) {
@@ -389,17 +465,20 @@
             } else if (calPoints.length === 2) {
                 magWrap.style.display = 'none';
                 isCrosshairActive = false;
-                document.getElementById('dist-modal').style.display = 'flex';
+
+                if (currentTool === 'scale') {
+                    showScaleModal();
+                } else if (currentTool === 'measure') {
+                    showMeasureResult();
+                }
             }
             canvas.requestRenderAll();
         }
 
-        // Клик по подсказке = поставить точку
         hint.addEventListener('click', (e) => {
             e.stopPropagation();
             placePoint();
         });
-        // Также для мобильных – touchend (предотвращаем двойное срабатывание)
         hint.addEventListener('touchend', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -422,7 +501,7 @@
                 lastX = touch.clientX;
                 lastY = touch.clientY;
 
-                if (isScaleMode) {
+                if (currentTool !== 'none') {
                     const desiredCenterX = touch.clientX;
                     const desiredCenterY = touch.clientY - VISUAL_OFFSET;
                     const actualCenter = positionCrosshair(desiredCenterX, desiredCenterY);
@@ -452,18 +531,17 @@
                 lastMidX = midX;
                 lastMidY = midY;
             } else if (e.touches.length === 1) {
-                if (isScaleMode && isCrosshairActive) {
+                if (currentTool !== 'none' && isCrosshairActive) {
                     // Панорамирование карты одним пальцем
                     const vpt = canvas.viewportTransform;
                     vpt[4] += (touch.clientX - lastX);
                     vpt[5] += (touch.clientY - lastY);
                     canvas.requestRenderAll();
 
-                    // Обновляем линию-превью, т.к. координаты под перекрестием изменились
                     if (calPoints.length === 1) {
                         updateTempPreview(crossCenterX_abs, crossCenterY_abs);
                     }
-                } else if (!isScaleMode) {
+                } else if (currentTool === 'none') {
                     // Обычное панорамирование
                     const vpt = canvas.viewportTransform;
                     vpt[4] += (touch.clientX - lastX);
@@ -477,7 +555,7 @@
         }, { passive: false });
 
         canvas.upperCanvasEl.addEventListener('touchend', (e) => {
-            if (!isScaleMode) {
+            if (currentTool === 'none') {
                 magWrap.style.display = 'none';
                 isCrosshairActive = false;
                 clearTempPreview();
