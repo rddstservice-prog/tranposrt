@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Goldhofer THP/SL – Полный билд v0.9.2</title>
+  <title>Goldhofer THP/SL – Полный билд v0.9.3</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <style>
     :root {
@@ -27,11 +27,11 @@
     .crosshair::after { left:50%; top:0; height:100%; width:1px; transform:translateX(-0.5px); }
     #dist-modal, #builder-modal, #cargo-modal { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center; }
     .modal-content { background:#252525; padding:20px; border-radius:12px; border:1px solid var(--accent); text-align:center; min-width:260px; max-height:80vh; overflow-y:auto; }
-    .modal-content input, .modal-content select { width:80px; text-align:center; padding:8px; font-size:16px; background:#111; color:var(--accent); border:1px solid #444; border-radius:6px; margin:10px 0; outline:none; }
+    .modal-content input, .modal-content select { width:80px; text-align:center; padding:8px; font-size:16px; background:#111; color:var(--accent); border:1px solid #444; border-radius:6px; margin:5px; outline:none; }
     .modal-content button { background:var(--accent); border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin:5px; }
     .train-summary { background:#333; padding:8px; border-radius:8px; margin:10px 0; font-size:14px; text-align:left; white-space:normal; }
-    .slider-container { display:flex; align-items:center; gap:10px; margin:10px 0; }
-    #opacity-slider { width:150px; }
+    .slider-container { display:flex; align-items:center; gap:5px; margin:5px 0; }
+    #opacity-slider { width:100%; } /* теперь помещается */
   </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
 
 <div id="app">
   <aside id="sidebar">
-    <div style="font-size:8px;opacity:0.3;">v0.9.2</div>
+    <div style="font-size:8px;opacity:0.3;">v0.9.3</div>
     <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
     <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
     <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -260,7 +260,7 @@
   let cargo = null;
 
   function getScale() {
-    return pixelsPerMeter || 20; // увеличено до 20 для видимости без калибровки
+    return pixelsPerMeter || 20; // увеличено для заметности на стандартном экране
   }
 
   function drawTrain() {
@@ -306,6 +306,17 @@
     updateSummary();
   }
 
+  // Вспомогательная функция вычисления центра видимой области канваса
+  function getViewportCenter() {
+    const vpt = canvas.viewportTransform;
+    const containerRect = canvasContainer.getBoundingClientRect();
+    const centerScreenX = containerRect.width / 2;
+    const centerScreenY = containerRect.height / 2;
+    // Преобразование экранных координат в канвас-координаты (обратное преобразование)
+    const inv = fabric.util.invertTransform(vpt.slice());
+    return fabric.util.transformPoint({ x: centerScreenX, y: centerScreenY }, inv);
+  }
+
   function addModule(type, extraParams = {}) {
     let mod;
     const color = '#cc2222';
@@ -325,9 +336,9 @@
     }
     if (!mod) return;
 
-    // Позиционирование первого модуля точно в центре видимой области
+    // Первый модуль — точно в центр видимой области
     if (trainModules.length === 0) {
-      const center = canvas.getVpCenter();
+      const center = getViewportCenter();
       mod.x = center.x;
       mod.y = center.y;
     } else {
@@ -349,10 +360,10 @@
 
   function getModuleLabel(mod) {
     switch (mod.type) {
-      case 'tractor': return '🚛 Тягач';
-      case 'gooseneck': return '🔻 Гусек';
-      case 'axle': return `⚙️ ${mod.params.axles} оси`;
-      case 'beam': return `🛏 Постель(${mod.params.baseLength?.toFixed(1)}x${mod.width.toFixed(1)})`;
+      case 'tractor': return 'Тягач';
+      case 'gooseneck': return 'Гуснек';
+      case 'axle': return `${mod.params.axles} оси`;
+      case 'beam': return `Балки(${mod.params.baseLength?.toFixed(1)}x${mod.width.toFixed(1)})`;
       default: return mod.type;
     }
   }
@@ -368,35 +379,35 @@
       <div class="modal-content">
         <h3>Сборка автопоезда</h3>
         <div id="train-summary" class="train-summary">Состав пуст</div>
-        <button onclick="addModule('tractor')">🚛 Тягач 8x4</button>
-        <button onclick="addModule('gooseneck')">🔻 Гуснек</button>
-        <button onclick="addModule('axle2')">⚙️ 2 оси</button>
-        <button onclick="addModule('axle3')">⚙️ 3 оси</button>
-        <button onclick="addModule('axle4')">⚙️ 4 оси</button>
-        <button onclick="addModule('axle5')">⚙️ 5 осей</button>
-        <button onclick="addModule('axle6')">⚙️ 6 осей</button>
+        <button onclick="addModule('tractor')">Тягач 8x4</button>
+        <button onclick="addModule('gooseneck')">Гуснек</button>
+        <button onclick="addModule('axle2')">2 оси</button>
+        <button onclick="addModule('axle3')">3 оси</button>
+        <button onclick="addModule('axle4')">4 оси</button>
+        <button onclick="addModule('axle5')">5 осей</button>
+        <button onclick="addModule('axle6')">6 осей</button>
         <div style="margin-top:10px;">
-          <label>Длина постели (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
-          <label>Ширина постели (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
-          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})">🛏 Постель</button>
+          <label>Длина балок (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
+          <label>Ширина балок (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
+          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})" style="margin-left:5px;">Балки</button>
         </div>
         <br>
-        <button onclick="clearTrain()">🗑 Очистить</button>
+        <button onclick="clearTrain()">Очистить</button>
         <button onclick="document.getElementById('builder-modal').style.display='none'">Закрыть</button>
       </div>
     `;
     builderModal.style.display = 'flex';
-    updateSummary(); // обновляем сразу
+    updateSummary();
   }
 
   function openCargo() {
     if (!trainModules.some(m => m.type === 'beam')) {
-      alert('Добавьте постель в состав');
+      alert('Добавьте балки в состав');
       return;
     }
     cargoModal.innerHTML = `
       <div class="modal-content">
-        <h3>Груз на постели</h3>
+        <h3>Груз на балках</h3>
         <label>Длина (м): <input type="number" id="cargo-length" value="10" step="0.1"></label>
         <label>Ширина (м): <input type="number" id="cargo-width" value="3" step="0.1"></label>
         <br>
@@ -452,7 +463,7 @@
     reader.readAsDataURL(file);
   }
 
-  // ====================== ИНСТРУМЕНТЫ МАСШТАБ / ИЗМЕРЕНИЕ (без изменений) ======================
+  // ====================== ИНСТРУМЕНТЫ МАСШТАБ / ИЗМЕРЕНИЕ ======================
   function clearTempPreview() {
     if (tempLine) { canvas.remove(tempLine); tempLine = null; }
     if (tempCircle) { canvas.remove(tempCircle); tempCircle = null; }
