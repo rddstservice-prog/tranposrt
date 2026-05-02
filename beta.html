@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Heavy Haul Simulator v0.8 – Mobile</title>
+    <title>Heavy Haul Simulator v1.0 – Mobile</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root {
@@ -94,17 +94,19 @@
             cursor: pointer; font-size: 14px;
         }
         .axle-opt.selected { background: var(--accent); color: #000; border-color: var(--accent); }
+        .config-display { font-weight: bold; margin: 10px 0; }
     </style>
 </head>
 <body>
 <div id="dist-modal"></div>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size:8px;opacity:0.3;">v0.8</div>
+        <div style="font-size:8px;opacity:0.3;">v1.0</div>
         <div class="menu-btn" id="map-btn"><span>🖼️</span><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn"><span>📏</span><span>МАСШТАБ</span></div>
         <div class="menu-btn" id="measure-btn"><span>📐</span><span>ИЗМЕРИТЬ</span></div>
         <div class="menu-btn" id="build-btn"><span>🚛</span><span>СБОРКА</span></div>
+        <div class="menu-btn" id="sim-btn"><span>🎮</span><span>СИМ</span></div>
         <input type="file" id="map-upload" accept="image/*" style="display:none">
     </aside>
     <main id="canvas-container">
@@ -134,30 +136,27 @@
     const scaleBtn = document.getElementById('scale-btn');
     const measureBtn = document.getElementById('measure-btn');
     const buildBtn = document.getElementById('build-btn');
+    const simBtn = document.getElementById('sim-btn');
     const mapBtn = document.getElementById('map-btn');
 
-    // Режимы и инструменты
-    let currentTool = 'none';        // 'scale', 'measure', 'build', 'simulate'
+    let currentTool = 'none';
     let calPoints = [];
     let tempLine = null, tempCircle = null;
-    let pixelsPerMeter = null;      // пикселей на 1 метр
+    let pixelsPerMeter = null;
 
-    // Параметры жестов
     let lastX = 0, lastY = 0;
     let isMultiTouch = false;
     let initialDist = 0, initialZoom = 1;
     let lastMidX = 0, lastMidY = 0;
 
-    // Перекрестие
     let crossCenterX_abs = 0, crossCenterY_abs = 0;
     let isCrosshairActive = false;
     const CROSS_SIZE = 30;
     const VISUAL_OFFSET = 80;
     const HINT_RESERVE = 25;
 
-    // Симуляция
     let simActive = false;
-    let trailerConfig = [];          // массив количества осей
+    let trailerConfig = [];
     let roadTrainGroup = null;
     let sim = {
         tractorAngle: 0,
@@ -167,14 +166,14 @@
         radius: 0
     };
     let isDraggingTractor = false;
+    let dragLastCanvasX = 0, dragLastCanvasY = 0; // для перемещения шкворня
 
-    // Геометрия в метрах
     const GEOM = {
-        tractor: { length: 7.5, width: 2.5, wheelBase: 5.5 },  // расстояние от передка до шкворня
+        tractor: { length: 7.5, width: 2.5, wheelBase: 5.5 },
         gooseneck: { length: 3.8, width: 2.5, pinOffset: 0.55 },
-        axleTrack: 1.8,           // колея
-        axleBase: 1.5,            // между соседними осями
-        overhang: 0.75,           // от края рамы до крайней оси
+        axleTrack: 1.8,
+        axleBase: 1.5,
+        overhang: 0.75,
         maxAxleAngle: 50 * Math.PI/180
     };
 
@@ -200,13 +199,8 @@
             canvas.remove(roadTrainGroup);
             roadTrainGroup = null;
         }
-        // удалить вспомогательные линии ICR
-        canvas.getObjects('line').forEach(o => {
-            if (o.data && o.data.isHelper) canvas.remove(o);
-        });
-        canvas.getObjects('circle').forEach(o => {
-            if (o.data && o.data.isHelper) canvas.remove(o);
-        });
+        canvas.getObjects('line').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
+        canvas.getObjects('circle').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         simActive = false;
         isDraggingTractor = false;
         canvas.renderAll();
@@ -214,12 +208,10 @@
 
     function switchTool(tool) {
         if (currentTool === tool) {
-            // выключить
             currentTool = 'none';
             if (tool === 'simulate') deactivateSimulation();
             else resetToolState();
         } else {
-            // включить новый инструмент
             if (currentTool === 'simulate') deactivateSimulation();
             else resetToolState();
             currentTool = tool;
@@ -230,7 +222,8 @@
     function updateActiveButtons() {
         scaleBtn.classList.toggle('active', currentTool === 'scale');
         measureBtn.classList.toggle('active', currentTool === 'measure');
-        buildBtn.classList.toggle('active', currentTool === 'build' || currentTool === 'simulate');
+        buildBtn.classList.toggle('active', currentTool === 'build');
+        simBtn.classList.toggle('active', currentTool === 'simulate');
     }
 
     // ========== ЗАГРУЗКА КАРТЫ ==========
@@ -254,36 +247,42 @@
                 });
                 img.scale(Math.min(canvas.width/img.width, canvas.height/img.height) * 0.9);
                 canvas.add(img).sendToBack().renderAll();
-                // сбросим масштаб, чтобы заново калибровать
                 pixelsPerMeter = null;
-                document.getElementById('map-btn').classList.remove('active');
                 switchTool('none');
             });
         };
         reader.readAsDataURL(file);
     }
 
-    // ========== РЕЖИМ МАСШТАБ ==========
+    // ========== РЕЖИМЫ ==========
     scaleBtn.addEventListener('click', () => switchTool('scale'));
-
-    // ========== РЕЖИМ ИЗМЕРЕНИЕ ==========
     measureBtn.addEventListener('click', () => switchTool('measure'));
 
-    // ========== РЕЖИМ СБОРКИ / СИМУЛЯЦИИ ==========
+    simBtn.addEventListener('click', () => {
+        if (!simActive) {
+            alert('Сначала соберите автопоезд через кнопку «Сборка» и нажмите «Собрать и запустить».');
+            return;
+        }
+        // Переключаем режим перемещения тягача (пальцем)
+        if (currentTool === 'simulate') {
+            switchTool('none');
+            hint.textContent = '✔ Поставить';
+        } else {
+            switchTool('simulate');
+            hint.textContent = 'Тяните за тягач – он поедет';
+        }
+    });
+
     buildBtn.addEventListener('click', () => {
         if (currentTool === 'simulate') {
-            // уже симуляция - выключаем
             switchTool('none');
             return;
         }
-        // открыть модалку сборки
         showBuildModal();
     });
 
     // ========== МОДАЛЬНЫЕ ОКНА ==========
-    function hideModal() {
-        distModal.style.display = 'none';
-    }
+    function hideModal() { distModal.style.display = 'none'; }
 
     function showScaleModal() {
         distModal.innerHTML = `
@@ -291,8 +290,7 @@
                 <div style="font-size:14px;">Реальное расстояние между точками:</div>
                 <input type="number" id="dist-input" value="100"> <span style="color:#aaa;">м</span><br>
                 <button id="confirm-scale-btn">ПОДТВЕРДИТЬ</button>
-            </div>
-        `;
+            </div>`;
         distModal.style.display = 'flex';
         document.getElementById('confirm-scale-btn').addEventListener('click', () => {
             const realDist = parseFloat(document.getElementById('dist-input').value);
@@ -310,8 +308,7 @@
         const pixelDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
         let message;
         if (pixelsPerMeter && pixelsPerMeter > 0) {
-            const meters = pixelDist / pixelsPerMeter;
-            message = `≈ ${meters.toFixed(2)} м`;
+            message = `≈ ${(pixelDist / pixelsPerMeter).toFixed(2)} м`;
         } else {
             message = "Сначала откалибруйте масштаб!";
         }
@@ -320,17 +317,17 @@
                 <div>Результат измерения:</div>
                 <div style="font-size:22px; font-weight:bold; margin:15px 0;">${message}</div>
                 <button id="close-measure-btn">OK</button>
-            </div>
-        `;
+            </div>`;
         distModal.style.display = 'flex';
         document.getElementById('close-measure-btn').addEventListener('click', hideModal);
     }
 
     function showBuildModal() {
-        // отображаем текущую конфигурацию или пустую
+        const configStr = 'Тягач + Гуснек' + (trailerConfig.length ? ' + ' + trailerConfig.map(n => n + '-осн').join(' + ') : '');
         let html = `
             <div class="modal-content">
                 <h3>Сборка автопоезда</h3>
+                <div class="config-display">${configStr}</div>
                 <div class="trailer-list" id="trailer-list">
                     ${trailerConfig.length === 0 ? '<div style="color:#aaa;text-align:center;">Нет трейлеров</div>' : ''}
                 </div>
@@ -345,8 +342,7 @@
                 <br><br>
                 <button id="confirm-build-btn" style="background:#27ae60; color:white;">СОБРАТЬ И ЗАПУСТИТЬ</button>
                 <button id="cancel-build-btn">Отмена</button>
-            </div>
-        `;
+            </div>`;
         distModal.innerHTML = html;
         distModal.style.display = 'flex';
 
@@ -359,7 +355,6 @@
                 selectedAxles = parseInt(opt.dataset.axles);
             });
         });
-        // выделим первый по умолчанию
         axleOpts[0].classList.add('selected');
 
         const updateTrailerList = () => {
@@ -379,6 +374,8 @@
                         const idx = parseInt(e.target.dataset.idx);
                         trailerConfig.splice(idx, 1);
                         updateTrailerList();
+                        document.querySelector('.config-display').textContent =
+                            'Тягач + Гуснек' + (trailerConfig.length ? ' + ' + trailerConfig.map(n => n + '-осн').join(' + ') : '');
                     });
                 });
             }
@@ -388,6 +385,8 @@
         document.getElementById('add-trailer-btn').addEventListener('click', () => {
             trailerConfig.push(selectedAxles);
             updateTrailerList();
+            document.querySelector('.config-display').textContent =
+                'Тягач + Гуснек' + (trailerConfig.length ? ' + ' + trailerConfig.map(n => n + '-осн').join(' + ') : '');
         });
 
         document.getElementById('confirm-build-btn').addEventListener('click', () => {
@@ -408,14 +407,12 @@
 
     // ========== СИМУЛЯЦИЯ ==========
     function startSimulation() {
-        // подготовка sim
         simActive = true;
         sim.tractorAngle = 0;
-        sim.platformAngle = 0;   // горизонтально
+        sim.platformAngle = 0;
         sim.pinX = canvas.width / 2;
         sim.pinY = canvas.height / 2;
         drawRoadTrain();
-        switchTool('simulate');
     }
 
     function getTrailerLength(axles) {
@@ -428,11 +425,9 @@
         const scale = pixelsPerMeter;
         const objects = [];
 
-        // Тягач (рисуем как прямоугольник, шкворень на расстоянии wheelBase от передка)
         const tractorLen = GEOM.tractor.length * scale;
         const tractorW = GEOM.tractor.width * scale;
-        const pinDist = GEOM.tractor.wheelBase * scale; // от передка до шкворня
-        // Центр тягача смещён от шкворня назад на (tractorLen/2 - pinDist) вдоль тягача
+        const pinDist = GEOM.tractor.wheelBase * scale;
         const tractorAngleGlobal = sim.platformAngle + sim.tractorAngle;
         const tractorCenterX = sim.pinX - (tractorLen/2 - pinDist) * Math.cos(tractorAngleGlobal);
         const tractorCenterY = sim.pinY - (tractorLen/2 - pinDist) * Math.sin(tractorAngleGlobal);
@@ -446,7 +441,6 @@
         });
         objects.push(tractor);
 
-        // Гуснек
         const gooseneckLen = GEOM.gooseneck.length * scale;
         const gooseneckW = GEOM.gooseneck.width * scale;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset * scale;
@@ -462,7 +456,6 @@
         });
         objects.push(gooseneck);
 
-        // Трейлеры
         let startX = sim.pinX + (gooseneckLen - pinOnGooseneck) * Math.cos(sim.platformAngle);
         let startY = sim.pinY + (gooseneckLen - pinOnGooseneck) * Math.sin(sim.platformAngle);
 
@@ -482,40 +475,20 @@
             });
             objects.push(rect);
 
-            // расчёт углов осей
-            const totalAxles = axles;
-            const alphaFront = Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, sim.tractorAngle));
-            const alphaRear = Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, -sim.tractorAngle));
             const overhangPx = GEOM.overhang * scale;
             const axleSpacing = GEOM.axleBase * scale;
             const halfTrack = (GEOM.axleTrack / 2) * scale;
-
-            for (let a = 0; a < totalAxles; a++) {
+            for (let a = 0; a < axles; a++) {
                 const offsetFromFront = overhangPx + a * axleSpacing;
                 const offsetFromCenter = offsetFromFront - len/2;
                 const axleX = cx + offsetFromCenter * Math.cos(sim.platformAngle);
                 const axleY = cy + offsetFromCenter * Math.sin(sim.platformAngle);
-                const t = totalAxles > 1 ? a / (totalAxles - 1) : 0;
-                const axleAngle = sim.platformAngle + (alphaFront + t * (alphaRear - alphaFront));
-                const dx = halfTrack * Math.cos(axleAngle + Math.PI/2);
-                const dy = halfTrack * Math.sin(axleAngle + Math.PI/2);
+                const dx = halfTrack * Math.cos(sim.platformAngle + Math.PI/2);
+                const dy = halfTrack * Math.sin(sim.platformAngle + Math.PI/2);
                 const line = new fabric.Line([axleX - dx, axleY - dy, axleX + dx, axleY + dy], {
                     stroke: '#e74c3c', strokeWidth: 2, selectable: false, evented: false
                 });
                 objects.push(line);
-                // колёса
-                const wheelR = 0.15 * scale;
-                const leftWheel = new fabric.Circle({
-                    left: axleX - dx, top: axleY - dy, radius: wheelR,
-                    fill: '#111', stroke: '#fff', strokeWidth: 1,
-                    originX: 'center', originY: 'center', selectable: false, evented: false
-                });
-                const rightWheel = new fabric.Circle({
-                    left: axleX + dx, top: axleY + dy, radius: wheelR,
-                    fill: '#111', stroke: '#fff', strokeWidth: 1,
-                    originX: 'center', originY: 'center', selectable: false, evented: false
-                });
-                objects.push(leftWheel, rightWheel);
             }
             startX += len * Math.cos(sim.platformAngle);
             startY += len * Math.sin(sim.platformAngle);
@@ -528,19 +501,18 @@
     }
 
     function drawICR() {
-        // удалить старые вспомогательные элементы
         canvas.getObjects('line').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         canvas.getObjects('circle').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         if (!simActive || trailerConfig.length===0) return;
 
         const scale = pixelsPerMeter;
-        const side = sim.tractorAngle > 0 ? 'left' : 'right';
-        const sign = side === 'left' ? 1 : -1;
+        // Исправлено: при повороте направо ICR справа, налево — слева
+        const side = sim.tractorAngle > 0 ? 'right' : 'left';
+        const sign = side === 'right' ? 1 : -1;
 
-        // Первая ось первого трейлера
         const gooseneckLen = GEOM.gooseneck.length;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset;
-        const firstAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + GEOM.overhang; // метры
+        const firstAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + GEOM.overhang;
         const axle1X = sim.pinX + firstAxleDistFromPin * scale * Math.cos(sim.platformAngle);
         const axle1Y = sim.pinY + firstAxleDistFromPin * scale * Math.sin(sim.platformAngle);
         const halfTrack = (GEOM.axleTrack/2) * scale;
@@ -549,7 +521,6 @@
         const wheel1Y = axle1Y + sign * halfTrack * Math.sin(perpAngle);
         const axle1Angle = sim.platformAngle + Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, sim.tractorAngle));
 
-        // Последняя ось последнего трейлера
         let totalPlatformLen = 0;
         trailerConfig.forEach(ax => { totalPlatformLen += getTrailerLength(ax); });
         const lastAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + totalPlatformLen - GEOM.overhang;
@@ -559,13 +530,11 @@
         const wheel2Y = axle2Y + sign * halfTrack * Math.sin(perpAngle);
         const axle2Angle = sim.platformAngle + Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, -sim.tractorAngle));
 
-        // Перпендикуляры
         const dir1X = Math.cos(axle1Angle), dir1Y = Math.sin(axle1Angle);
         const dir2X = Math.cos(axle2Angle), dir2Y = Math.sin(axle2Angle);
         const perp1X = -dir1Y, perp1Y = dir1X;
         const perp2X = -dir2Y, perp2Y = dir2X;
 
-        // Пересечение
         const det = perp1X * perp2Y - perp1Y * perp2X;
         if (Math.abs(det) < 1e-9) return;
         const dWx = wheel2X - wheel1X, dWy = wheel2Y - wheel1Y;
@@ -588,7 +557,7 @@
         canvas.add(line1, line2, icrCircle);
     }
 
-    // ========== УПРАВЛЕНИЕ (TOUCH / MOUSE) ==========
+    // ========== УПРАВЛЕНИЕ ПЕРЕТАСКИВАНИЕМ (ДВИЖЕНИЕ + ПОВОРОТ) ==========
     function canvasPointFromScreen(sx, sy) {
         return canvas.getPointer({ clientX: sx, clientY: sy });
     }
@@ -628,17 +597,17 @@
         lastX = touch.clientX;
         lastY = touch.clientY;
 
-        // Проверка перетаскивания тягача в режиме симуляции
         if (currentTool === 'simulate' && simActive) {
             const ptr = canvasPointFromScreen(touch.clientX, touch.clientY);
             if (isPointNearTractor(ptr.x, ptr.y)) {
                 isDraggingTractor = true;
+                dragLastCanvasX = ptr.x;
+                dragLastCanvasY = ptr.y;
                 e.preventDefault();
                 return;
             }
         }
 
-        // Обработка инструментов масштаб/измерение
         if (currentTool === 'scale' || currentTool === 'measure') {
             const desiredCenterX = touch.clientX;
             const desiredCenterY = touch.clientY - VISUAL_OFFSET;
@@ -650,8 +619,6 @@
             e.preventDefault();
             return;
         }
-
-        // Иначе панорама (режим none)
     }, { passive: false });
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
@@ -671,26 +638,32 @@
         const touch = e.touches[0];
         if (isDraggingTractor && currentTool === 'simulate' && simActive) {
             const ptr = canvasPointFromScreen(touch.clientX, touch.clientY);
-            const dx = ptr.x - sim.pinX;
-            const dy = ptr.y - sim.pinY;
-            const targetAngle = Math.atan2(dy, dx) - sim.platformAngle;
-            let newAngle = targetAngle;
-            // ограничение разумное, но не строгое, так как тележки уже обрезаются
-            if (newAngle > Math.PI) newAngle -= 2*Math.PI;
-            if (newAngle < -Math.PI) newAngle += 2*Math.PI;
-            sim.tractorAngle = newAngle;
+            // Перемещаем шкворень на величину смещения пальца
+            const dx = ptr.x - dragLastCanvasX;
+            const dy = ptr.y - dragLastCanvasY;
+            sim.pinX += dx;
+            sim.pinY += dy;
+            dragLastCanvasX = ptr.x;
+            dragLastCanvasY = ptr.y;
+
+            // Вычисляем угол тягача относительно платформы
+            const deltaX = ptr.x - sim.pinX;
+            const deltaY = ptr.y - sim.pinY;
+            const targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            sim.tractorAngle = targetAngle;
+
             drawRoadTrain();
             e.preventDefault();
             return;
         }
-        // панорама или перемещение перекрестия
+        // панорама для других инструментов
         if ((currentTool === 'scale' || currentTool === 'measure') && isCrosshairActive) {
             const vpt = canvas.viewportTransform;
             vpt[4] += (touch.clientX - lastX);
             vpt[5] += (touch.clientY - lastY);
             canvas.requestRenderAll();
             if (calPoints.length === 1) updateTempPreview(crossCenterX_abs, crossCenterY_abs);
-        } else if (currentTool === 'none' || currentTool === 'simulate') {
+        } else if (currentTool === 'none' || (currentTool === 'simulate' && !isDraggingTractor)) {
             const vpt = canvas.viewportTransform;
             vpt[4] += (touch.clientX - lastX);
             vpt[5] += (touch.clientY - lastY);
@@ -709,29 +682,35 @@
         }
     });
 
-    // Поддержка мыши для отладки
+    // Поддержка мыши
     canvas.on('mouse:down', opt => {
         if (currentTool === 'simulate' && simActive) {
             const ptr = canvas.getPointer(opt.e);
             if (isPointNearTractor(ptr.x, ptr.y)) {
                 isDraggingTractor = true;
-                return;
+                dragLastCanvasX = ptr.x;
+                dragLastCanvasY = ptr.y;
             }
         }
     });
     canvas.on('mouse:move', opt => {
         if (isDraggingTractor && currentTool === 'simulate' && simActive) {
             const ptr = canvas.getPointer(opt.e);
-            const dx = ptr.x - sim.pinX;
-            const dy = ptr.y - sim.pinY;
-            const targetAngle = Math.atan2(dy, dx) - sim.platformAngle;
+            const dx = ptr.x - dragLastCanvasX;
+            const dy = ptr.y - dragLastCanvasY;
+            sim.pinX += dx;
+            sim.pinY += dy;
+            dragLastCanvasX = ptr.x;
+            dragLastCanvasY = ptr.y;
+            const deltaX = ptr.x - sim.pinX;
+            const deltaY = ptr.y - sim.pinY;
+            const targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
             sim.tractorAngle = targetAngle;
             drawRoadTrain();
         }
     });
     canvas.on('mouse:up', () => { isDraggingTractor = false; });
 
-    // Функции перекрестия (для scale/measure)
     function positionCrosshair(targetCenterX_abs, targetCenterY_abs) {
         if (currentTool !== 'scale' && currentTool !== 'measure') {
             magWrap.style.display = 'none';
@@ -747,11 +726,9 @@
         magWrap.style.left = wrapX + 'px';
         magWrap.style.top = wrapY + 'px';
         magWrap.style.display = 'block';
-        const actualCenterX_rel = wrapX + CROSS_SIZE/2;
-        const actualCenterY_rel = wrapY + CROSS_SIZE/2;
         return {
-            x: actualCenterX_rel + containerRect.left,
-            y: actualCenterY_rel + containerRect.top
+            x: wrapX + CROSS_SIZE/2 + containerRect.left,
+            y: wrapY + CROSS_SIZE/2 + containerRect.top
         };
     }
 
@@ -770,8 +747,7 @@
         canvas.add(tempLine, tempCircle);
         if (currentTool === 'measure' && pixelsPerMeter) {
             const pixelDist = Math.hypot(ptr.x - firstPoint.x, ptr.y - firstPoint.y);
-            const meters = pixelDist / pixelsPerMeter;
-            hint.textContent = `${meters.toFixed(1)} м | ✔ Вторая точка`;
+            hint.textContent = `${(pixelDist / pixelsPerMeter).toFixed(1)} м | ✔ Вторая точка`;
         } else {
             hint.textContent = '✔ Вторая точка';
         }
