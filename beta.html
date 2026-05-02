@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5 - Center Crosshair</title>
+    <title>Mobile Beta v0.4.7 - Fixed Crosshair</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js">
     </script>
     <style>
@@ -12,6 +12,8 @@
             --menu-w: 65px;
             --accent: #FF9800;
             --cross-size: 30px;
+            --hint-height: 25px;
+            /* примерная высота подсказки с учётом margin */
         }
 
         body,
@@ -72,34 +74,38 @@
             overflow: hidden;
         }
 
-        /* Обёртка для перекрестия и подсказки — позиционируется из JS */
+        /* Обёртка теперь только для перекрестия, с фиксированной шириной */
         #magnifier-wrap {
             position: absolute;
             pointer-events: none;
             display: none;
             z-index: 1000;
-            flex-direction: column;
-            align-items: center;
+            width: var(--cross-size);
+            height: var(--cross-size);
             will-change: left, top;
         }
 
-        /* Подсказка */
+        /* Подсказка позиционируется абсолютно над обёрткой и не влияет на ширину */
         #hint {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 50%;
+            transform: translateX(-50%);
             background: var(--accent);
             color: #000;
             padding: 3px 8px;
             border-radius: 4px;
             font-size: 10px;
             font-weight: 900;
-            margin-bottom: 8px;
             white-space: nowrap;
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+            pointer-events: none;
         }
 
-        /* Компактное перекрестие */
+        /* Компактное перекрестие занимает всю обёртку */
         .crosshair {
-            width: var(--cross-size);
-            height: var(--cross-size);
+            width: 100%;
+            height: 100%;
             position: relative;
         }
 
@@ -112,7 +118,6 @@
         }
 
         .crosshair::before {
-            /* горизонтальная линия */
             left: 0;
             top: 50%;
             width: 100%;
@@ -121,7 +126,6 @@
         }
 
         .crosshair::after {
-            /* вертикальная линия */
             left: 50%;
             top: 0;
             height: 100%;
@@ -176,7 +180,7 @@
 
     <div id="app">
         <aside id="sidebar">
-            <div style="font-size: 8px; opacity: 0.3;">v0.4.6</div>
+            <div style="font-size: 8px; opacity: 0.3;">v0.4.7</div>
             <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
             <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
             <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
@@ -215,13 +219,12 @@
             lastMidY = 0;
         let isMultiTouch = false;
 
-        // Начальные координаты касания, сохраняются для точного позиционирования
-        let initialDownX = 0,
-            initialDownY = 0;
+        // Фактический центр перекрестия (в координатах viewport) после учёта границ
+        let crossCenterX = 0,
+            crossCenterY = 0;
 
         const CROSS_SIZE = 30; // размер перекрестия
-        const VISUAL_OFFSET = 150; // смещение вверх от пальца
-        const HINT_HEIGHT = 30; // примерная высота подсказки с отступом
+        const VISUAL_OFFSET = 80; // смещение вверх от пальца (уменьшено для видимости в ландшафте)
 
         function handleMapUpload(e) {
             const file = e.target.files[0];
@@ -267,25 +270,40 @@
             return canvas.getPointer({ clientX: screenX, clientY: screenY });
         }
 
-        // Позиционирует перекрестие по заданным экранным координатам (центр перекрестия)
-        function positionCrosshair(clientX, clientY) {
+        // Позиционирует обёртку перекрестия так, чтобы его центр был в (targetX, targetY) относительно viewport,
+        // но с учётом границ canvasContainer, чтобы перекрестие и подсказка не вылезали.
+        // Возвращает фактические координаты центра перекрестия после коррекции.
+        function positionCrosshair(targetCenterX, targetCenterY) {
             if (!isScaleMode) {
                 magWrap.style.display = 'none';
-                return;
+                return { x: targetCenterX, y: targetCenterY };
             }
 
             const containerRect = canvasContainer.getBoundingClientRect();
+            const hintHeight = 25; // примерная высота подсказки с отступом
 
-            // Центр перекрестия должен находиться над пальцем на VISUAL_OFFSET пикселей
-            const centerScreenX = clientX;
-            const centerScreenY = clientY - VISUAL_OFFSET;
+            // Желаемое положение левого верхнего угла обёртки
+            let wrapX = targetCenterX - CROSS_SIZE / 2;
+            let wrapY = targetCenterY - CROSS_SIZE / 2;
 
-            const wrapX = centerScreenX - containerRect.left - CROSS_SIZE / 2;
-            const wrapY = centerScreenY - containerRect.top - HINT_HEIGHT - CROSS_SIZE / 2;
+            // Ограничения, чтобы подсказка и перекрестие не выходили за границы контейнера
+            const minWrapX = 0;
+            const minWrapY = hintHeight; // сверху должно быть место для подсказки
+            const maxWrapX = containerRect.width - CROSS_SIZE;
+            const maxWrapY = containerRect.height - CROSS_SIZE;
+
+            wrapX = Math.min(Math.max(wrapX, minWrapX), maxWrapX);
+            wrapY = Math.min(Math.max(wrapY, minWrapY), maxWrapY);
+
+            // Фактический центр перекрестия после коррекции
+            const actualCenterX = wrapX + CROSS_SIZE / 2;
+            const actualCenterY = wrapY + CROSS_SIZE / 2;
 
             magWrap.style.left = `${wrapX}px`;
             magWrap.style.top = `${wrapY}px`;
-            magWrap.style.display = 'flex';
+            magWrap.style.display = 'block'; // теперь display block, так как обёртка фиксированных размеров
+
+            return { x: actualCenterX, y: actualCenterY };
         }
 
         canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
@@ -305,21 +323,21 @@
                 lastY = touch.clientY;
 
                 if (isScaleMode) {
-                    // Фиксируем начальную позицию, по которой будет ставиться точка
-                    initialDownX = touch.clientX;
-                    initialDownY = touch.clientY;
+                    // Желаемый центр перекрестия: строго над пальцем со смещением VISUAL_OFFSET
+                    const desiredCenterX = touch.clientX;
+                    const desiredCenterY = touch.clientY - VISUAL_OFFSET;
 
-                    // Сразу показываем перекрестие в месте касания
-                    positionCrosshair(initialDownX, initialDownY);
+                    // Позиционируем перекрестие с учётом границ и сохраняем фактический центр
+                    const actualCenter = positionCrosshair(desiredCenterX, desiredCenterY);
+                    crossCenterX = actualCenter.x;
+                    crossCenterY = actualCenter.y;
 
                     clearTimeout(calTimer);
                     calTimer = setTimeout(() => {
                         if (isMultiTouch) return;
 
-                        // Точка ставится строго в центр перекрестия (используем те же координаты)
-                        const centerScreenX = initialDownX;
-                        const centerScreenY = initialDownY - VISUAL_OFFSET;
-                        const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
+                        // Точка ставится точно в фактический центр перекрестия
+                        const ptr = canvasPointFromScreen(crossCenterX, crossCenterY);
 
                         const dot = new fabric.Circle({
                             left: ptr.x,
@@ -339,7 +357,6 @@
 
                         if (calPoints.length === 1) {
                             hint.innerText = "Вторая точка";
-                            // Перекрестие продолжает показываться на старом месте
                         } else if (calPoints.length === 2) {
                             magWrap.style.display = 'none';
                             document.getElementById('dist-modal').style.display = 'flex';
@@ -364,20 +381,12 @@
                 lastMidX = midX;
                 lastMidY = midY;
             } else if (e.touches.length === 1) {
-                // В режиме масштаба перекрестие остаётся на месте, таймер не сбрасывается,
-                // только панорамирование карты
-                if (!isScaleMode) {
-                    const vpt = canvas.viewportTransform;
-                    vpt[4] += (touch.clientX - lastX);
-                    vpt[5] += (touch.clientY - lastY);
-                    canvas.requestRenderAll();
-                } else {
-                    // В режиме масштаба панорамируем карту, но перекрестие не трогаем
-                    const vpt = canvas.viewportTransform;
-                    vpt[4] += (touch.clientX - lastX);
-                    vpt[5] += (touch.clientY - lastY);
-                    canvas.requestRenderAll();
-                }
+                // В режиме масштаба панорамируем карту, но перекрестие не двигаем и таймер не сбрасываем
+                const vpt = canvas.viewportTransform;
+                vpt[4] += (touch.clientX - lastX);
+                vpt[5] += (touch.clientY - lastY);
+                canvas.requestRenderAll();
+
                 lastX = touch.clientX;
                 lastY = touch.clientY;
             }
