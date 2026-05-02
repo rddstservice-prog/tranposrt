@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.4.5 - Center Loupe</title>
+    <title>Mobile Beta v0.4.5 - Center Crosshair</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js">
     </script>
     <style>
@@ -83,7 +83,7 @@
             will-change: left, top;
         }
 
-        /* Подсказка остаётся без изменений */
+        /* Подсказка */
         #hint {
             background: var(--accent);
             color: #000;
@@ -96,7 +96,7 @@
             box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
         }
 
-        /* Компактное перекрестие (замена лупы) */
+        /* Компактное перекрестие */
         .crosshair {
             width: var(--cross-size);
             height: var(--cross-size);
@@ -176,14 +176,13 @@
 
     <div id="app">
         <aside id="sidebar">
-            <div style="font-size: 8px; opacity: 0.3;">v0.4.5</div>
+            <div style="font-size: 8px; opacity: 0.3;">v0.4.6</div>
             <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
             <div class="menu-btn" id="scale-btn" onclick="toggleScaleMode()"><i>📏</i><span>МАСШТАБ</span></div>
             <input type="file" id="map-upload" accept="image/*" style="display:none" onchange="handleMapUpload(event)">
         </aside>
 
         <main id="canvas-container">
-            <!-- Только подсказка и перекрестие (без лупы) -->
             <div id="magnifier-wrap">
                 <div id="hint">Удерживайте для точки</div>
                 <div class="crosshair"></div>
@@ -215,6 +214,10 @@
         let lastMidX = 0,
             lastMidY = 0;
         let isMultiTouch = false;
+
+        // Начальные координаты касания, сохраняются для точного позиционирования
+        let initialDownX = 0,
+            initialDownY = 0;
 
         const CROSS_SIZE = 30; // размер перекрестия
         const VISUAL_OFFSET = 150; // смещение вверх от пальца
@@ -264,18 +267,18 @@
             return canvas.getPointer({ clientX: screenX, clientY: screenY });
         }
 
-        // Обновляет позицию перекрестия (без рисования лупы)
-        function updateMagnifierUI(touch) {
-            if (!isScaleMode || !touch || isMultiTouch) {
+        // Позиционирует перекрестие по заданным экранным координатам (центр перекрестия)
+        function positionCrosshair(clientX, clientY) {
+            if (!isScaleMode) {
                 magWrap.style.display = 'none';
                 return;
             }
 
             const containerRect = canvasContainer.getBoundingClientRect();
 
-            // Центр перекрестия теперь точно над пальцем (с визуальным смещением)
-            const centerScreenX = touch.clientX;
-            const centerScreenY = touch.clientY - VISUAL_OFFSET;
+            // Центр перекрестия должен находиться над пальцем на VISUAL_OFFSET пикселей
+            const centerScreenX = clientX;
+            const centerScreenY = clientY - VISUAL_OFFSET;
 
             const wrapX = centerScreenX - containerRect.left - CROSS_SIZE / 2;
             const wrapY = centerScreenY - containerRect.top - HINT_HEIGHT - CROSS_SIZE / 2;
@@ -302,14 +305,22 @@
                 lastY = touch.clientY;
 
                 if (isScaleMode) {
-                    updateMagnifierUI(touch);
+                    // Фиксируем начальную позицию, по которой будет ставиться точка
+                    initialDownX = touch.clientX;
+                    initialDownY = touch.clientY;
+
+                    // Сразу показываем перекрестие в месте касания
+                    positionCrosshair(initialDownX, initialDownY);
+
                     clearTimeout(calTimer);
                     calTimer = setTimeout(() => {
                         if (isMultiTouch) return;
-                        // Точка ставится точно под центром перекрестия
-                        const centerScreenX = touch.clientX;
-                        const centerScreenY = touch.clientY - VISUAL_OFFSET;
+
+                        // Точка ставится строго в центр перекрестия (используем те же координаты)
+                        const centerScreenX = initialDownX;
+                        const centerScreenY = initialDownY - VISUAL_OFFSET;
                         const ptr = canvasPointFromScreen(centerScreenX, centerScreenY);
+
                         const dot = new fabric.Circle({
                             left: ptr.x,
                             top: ptr.y,
@@ -325,10 +336,10 @@
                         canvas.add(dot);
                         canvas.requestRenderAll();
                         calPoints.push({ ...ptr });
-                        updateMagnifierUI(touch);
 
                         if (calPoints.length === 1) {
                             hint.innerText = "Вторая точка";
+                            // Перекрестие продолжает показываться на старом месте
                         } else if (calPoints.length === 2) {
                             magWrap.style.display = 'none';
                             document.getElementById('dist-modal').style.display = 'flex';
@@ -353,10 +364,15 @@
                 lastMidX = midX;
                 lastMidY = midY;
             } else if (e.touches.length === 1) {
-                if (isScaleMode) {
-                    updateMagnifierUI(touch);
-                    if (Math.hypot(touch.clientX - lastX, touch.clientY - lastY) > 5) clearTimeout(calTimer);
+                // В режиме масштаба перекрестие остаётся на месте, таймер не сбрасывается,
+                // только панорамирование карты
+                if (!isScaleMode) {
+                    const vpt = canvas.viewportTransform;
+                    vpt[4] += (touch.clientX - lastX);
+                    vpt[5] += (touch.clientY - lastY);
+                    canvas.requestRenderAll();
                 } else {
+                    // В режиме масштаба панорамируем карту, но перекрестие не трогаем
                     const vpt = canvas.viewportTransform;
                     vpt[4] += (touch.clientX - lastX);
                     vpt[5] += (touch.clientY - lastY);
