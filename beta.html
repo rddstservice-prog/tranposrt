@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Goldhofer THP/SL – Полный билд v0.9.5</title>
+  <title>Goldhofer THP/SL – Полный билд v0.9.6</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <style>
     :root {
@@ -42,7 +42,7 @@
 
 <div id="app">
   <aside id="sidebar">
-    <div style="font-size:8px;opacity:0.3;">v0.9.5</div>
+    <div style="font-size:8px;opacity:0.3;">v0.9.6</div>
     <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
     <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
     <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -97,7 +97,7 @@
       this.width = width;
       this.color = color;
       this.angle = 0;
-      this.x = 0; // передняя стыковочная точка
+      this.x = 0;
       this.y = 0;
       this.frontOverhang = params.frontOverhang || 0;
       this.hitchRear = params.hitchRear || -length;
@@ -108,7 +108,7 @@
     get frontEdgeX() { return this.x - this.frontOverhang * Math.cos(this.angle); }
     get frontEdgeY() { return this.y - this.frontOverhang * Math.sin(this.angle); }
 
-    drawTractor(group, scale) {
+    drawTractor(group, scale) { /* ... без изменений ... */
       const { x, y, angle } = this;
       const cos = Math.cos(angle), sin = Math.sin(angle);
       const totalLen = 7.5 * scale, width = 2.55 * scale;
@@ -165,7 +165,7 @@
       group.add(new fabric.Line([hitchX+cl*sin, hitchY-cl*cos, hitchX-cl*sin, hitchY+cl*cos], { stroke:'red', strokeWidth:2, objectCaching:false }));
     }
 
-    drawGooseneck(group, scale) {
+    drawGooseneck(group, scale) { /* ... без изменений ... */
       const { x, y, angle, color } = this;
       const cos = Math.cos(angle), sin = Math.sin(angle);
       const totalLen = 3.75 * scale;
@@ -204,7 +204,7 @@
       group.add(new fabric.Line([x+cl*sin, y-cl*cos, x-cl*sin, y+cl*cos], { stroke:'red', strokeWidth:2, objectCaching:false }));
     }
 
-    drawAxle(group, scale) {
+    drawAxle(group, scale) { /* ... без изменений ... */
       const L = this.length * scale, W = this.width * scale;
       group.add(new fabric.Rect({
         left: this.x, top: this.y, width: L, height: W,
@@ -214,7 +214,7 @@
       }));
     }
 
-    drawBeam(group, scale) {
+    drawBeam(group, scale) { /* ... без изменений ... */
       const { x, y, angle, params, length } = this;
       const baseLen = params.baseLength;
       const adapterLen = 0.86 * scale;
@@ -260,7 +260,7 @@
   let cargo = null;
 
   function getScale() {
-    return pixelsPerMeter || 30;
+    return pixelsPerMeter || 1; // если масштаб не задан, используем 1, но сборка не откроется
   }
 
   function drawTrain() {
@@ -306,6 +306,51 @@
     updateSummary();
   }
 
+  // ---------- ГЛАВНОЕ ИЗМЕНЕНИЕ: проверка масштаба перед сборкой ----------
+  function openBuilder() {
+    if (!pixelsPerMeter) {
+      // Показываем модальное окно с требованием отмасштабировать карту
+      distModal.innerHTML = `
+        <div class="modal-content">
+          <div style="font-size:16px; margin-bottom:15px;">Сначала откалибруйте масштаб</div>
+          <div style="font-size:13px; color:#aaa;">Нажмите «МАСШТАБ» в меню и задайте реальное расстояние по карте.</div>
+          <br>
+          <button id="close-scale-warning">OK</button>
+        </div>
+      `;
+      distModal.style.display = 'flex';
+      document.getElementById('close-scale-warning').addEventListener('click', () => {
+        distModal.style.display = 'none';
+      });
+      return;
+    }
+    // Открываем окно сборки, как раньше
+    builderModal.innerHTML = `
+      <div class="modal-content">
+        <h3>Сборка автопоезда</h3>
+        <div id="train-summary" class="train-summary">Состав пуст</div>
+        <button onclick="addModule('tractor')">Тягач 8x4</button>
+        <button onclick="addModule('gooseneck')">Гуснек</button>
+        <button onclick="addModule('axle2')">2 оси</button>
+        <button onclick="addModule('axle3')">3 оси</button>
+        <button onclick="addModule('axle4')">4 оси</button>
+        <button onclick="addModule('axle5')">5 осей</button>
+        <button onclick="addModule('axle6')">6 осей</button>
+        <div style="margin-top:10px;">
+          <label>Длина балок (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
+          <label>Ширина балок (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
+          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})" style="margin-left:5px;">Балки</button>
+        </div>
+        <br>
+        <button onclick="clearTrain()">Очистить</button>
+        <button onclick="document.getElementById('builder-modal').style.display='none'">Закрыть</button>
+      </div>
+    `;
+    builderModal.style.display = 'flex';
+    updateSummary();
+  }
+
+  // Остальные функции остались без изменений, за исключением addModule, где авто‑зум можно оставить
   function addModule(type, extraParams = {}) {
     let mod;
     const color = '#cc2222';
@@ -338,7 +383,7 @@
     trainModules.push(mod);
     connectModules();
 
-    // Авто‑зум при добавлении первого модуля
+    // Авто‑зум только для первого модуля (после калибровки)
     if (trainModules.length === 1) {
       const group = canvas.getObjects().find(o => o.trainGroup);
       if (group) {
@@ -375,32 +420,6 @@
     const summaryEl = document.getElementById('train-summary');
     if (!summaryEl) return;
     summaryEl.innerHTML = trainModules.length ? 'Состав: ' + trainModules.map(m => getModuleLabel(m)).join(' + ') : 'Состав пуст';
-  }
-
-  function openBuilder() {
-    builderModal.innerHTML = `
-      <div class="modal-content">
-        <h3>Сборка автопоезда</h3>
-        <div id="train-summary" class="train-summary">Состав пуст</div>
-        <button onclick="addModule('tractor')">Тягач 8x4</button>
-        <button onclick="addModule('gooseneck')">Гуснек</button>
-        <button onclick="addModule('axle2')">2 оси</button>
-        <button onclick="addModule('axle3')">3 оси</button>
-        <button onclick="addModule('axle4')">4 оси</button>
-        <button onclick="addModule('axle5')">5 осей</button>
-        <button onclick="addModule('axle6')">6 осей</button>
-        <div style="margin-top:10px;">
-          <label>Длина балок (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
-          <label>Ширина балок (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
-          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})" style="margin-left:5px;">Балки</button>
-        </div>
-        <br>
-        <button onclick="clearTrain()">Очистить</button>
-        <button onclick="document.getElementById('builder-modal').style.display='none'">Закрыть</button>
-      </div>
-    `;
-    builderModal.style.display = 'flex';
-    updateSummary();
   }
 
   function openCargo() {
@@ -519,7 +538,7 @@
       scaleBtn.classList.remove('active');
       measureBtn.classList.remove('active');
       resetToolState();
-      drawTrain();
+      drawTrain(); // перерисовываем поезд с новым масштабом
     });
   }
 
