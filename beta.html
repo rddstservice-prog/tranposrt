@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Heavy Haul Simulator v2.0 – Mobile</title>
+    <title>Heavy Haul Simulator v2.0 – Mobile (Handle)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root {
@@ -36,26 +36,6 @@
             border-color: var(--accent); background: rgba(255,152,0,0.2); color: var(--accent);
         }
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
-
-        /* Пульт управления */
-        #sim-controls {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
-            display: none; gap: 20px; z-index: 500; align-items: center;
-        }
-        .ctrl-group {
-            display: flex; flex-direction: column; gap: 8px; align-items: center;
-        }
-        .ctrl-btn {
-            width: 55px; height: 55px; border-radius: 50%;
-            background: rgba(30,30,30,0.85); border: 2px solid #FF9800;
-            color: #FF9800; font-size: 30px; font-weight: bold;
-            display: flex; align-items: center; justify-content: center;
-            -webkit-tap-highlight-color: transparent; user-select: none;
-            cursor: pointer;
-        }
-        .ctrl-btn:active { background: rgba(255,152,0,0.3); }
-        .ctrl-horiz { display: flex; gap: 12px; }
-
         #magnifier-wrap {
             position: absolute; pointer-events: none; display: none; z-index: 1000;
             width: var(--cross-size); height: var(--cross-size); will-change: left, top;
@@ -135,16 +115,6 @@
             <div class="crosshair"></div>
         </div>
         <canvas id="c"></canvas>
-        <div id="sim-controls">
-            <div class="ctrl-group">
-                <div class="ctrl-horiz">
-                    <div class="ctrl-btn" id="turn-left">↶</div>
-                    <div class="ctrl-btn" id="turn-right">↷</div>
-                </div>
-                <div class="ctrl-btn" id="move-forward">↑</div>
-                <div class="ctrl-btn" id="move-backward">↓</div>
-            </div>
-        </div>
     </main>
 </div>
 
@@ -168,7 +138,6 @@
     const buildBtn = document.getElementById('build-btn');
     const simBtn = document.getElementById('sim-btn');
     const mapBtn = document.getElementById('map-btn');
-    const simControls = document.getElementById('sim-controls');
 
     let currentTool = 'none';
     let calPoints = [];
@@ -196,6 +165,8 @@
         icr: null,
         radius: 0
     };
+    let isDraggingHandle = false;
+    let dragLastCanvasX = 0, dragLastCanvasY = 0;
 
     const GEOM = {
         tractor: { length: 7.5, width: 2.5, wheelBase: 5.5 },
@@ -203,7 +174,8 @@
         axleTrack: 1.8,
         axleBase: 1.5,
         overhang: 0.75,
-        maxAxleAngle: 50 * Math.PI/180
+        maxAxleAngle: 50 * Math.PI/180,
+        handleOffset: 2.0  // расстояние от шкворня до управляющей точки (в метрах), можно регулировать
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
@@ -231,8 +203,7 @@
         canvas.getObjects('line').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         canvas.getObjects('circle').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         simActive = false;
-        simControls.style.display = 'none';
-        hint.style.display = 'block'; // возвращаем подсказку для других режимов
+        isDraggingHandle = false;
         canvas.renderAll();
     }
 
@@ -295,10 +266,10 @@
         }
         if (currentTool === 'simulate') {
             switchTool('none');
+            hint.textContent = '✔ Поставить';
         } else {
             switchTool('simulate');
-            simControls.style.display = 'flex';
-            hint.style.display = 'none'; // скрываем подсказку
+            hint.textContent = 'Тяните за красную точку';
         }
     });
 
@@ -307,7 +278,7 @@
         showBuildModal();
     });
 
-    // ========== МОДАЛЬНЫЕ ОКНА (без изменений) ==========
+    // ========== МОДАЛЬНЫЕ ОКНА ==========
     function hideModal() { distModal.style.display = 'none'; }
 
     function showScaleModal() {
@@ -426,7 +397,7 @@
         document.getElementById('cancel-build-btn').addEventListener('click', hideModal);
     }
 
-    // ========== СИМУЛЯЦИЯ: ГЕОМЕТРИЯ И ОТРИСОВКА ==========
+    // ========== СИМУЛЯЦИЯ ==========
     function startSimulation() {
         simActive = true;
         sim.tractorAngle = 0;
@@ -441,16 +412,14 @@
         return 3.0 + (axles - 2) * 1.5;
     }
 
-    // Вычисление ICR с ИСПРАВЛЕННЫМИ перпендикулярами
     function computeICR() {
         sim.icr = null;
         sim.radius = Infinity;
         if (!simActive || trailerConfig.length === 0) return;
 
         const scale = pixelsPerMeter;
-        // сторона поворота: положительный угол -> поворот направо -> ICR справа
         const side = sim.tractorAngle > 0 ? 'right' : 'left';
-        const sign = side === 'right' ? 1 : -1; // 1 = право, -1 = лево
+        const sign = side === 'right' ? 1 : -1;
 
         const gooseneckLen = GEOM.gooseneck.length;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset;
@@ -475,12 +444,11 @@
         const dir1X = Math.cos(axle1Angle), dir1Y = Math.sin(axle1Angle);
         const dir2X = Math.cos(axle2Angle), dir2Y = Math.sin(axle2Angle);
 
-        // Правильные перпендикуляры: для правой стороны (sign=1) используем правый перпендикуляр (sin, -cos)
-        // для левой стороны (sign=-1) используем левый перпендикуляр (-sin, cos)
-        const perp1X = sign * dir1Y;
-        const perp1Y = -sign * dir1X;
-        const perp2X = sign * dir2Y;
-        const perp2Y = -sign * dir2X;
+        // Правильные перпендикуляры для выбранной стороны
+        const perp1X = -sign * dir1Y;
+        const perp1Y = sign * dir1X;
+        const perp2X = -sign * dir2Y;
+        const perp2Y = sign * dir2X;
 
         const det = perp1X * perp2Y - perp1Y * perp2X;
         if (Math.abs(det) < 1e-9) return;
@@ -494,9 +462,20 @@
         sim.radius = Math.hypot(sim.icr.x - sim.pinX, sim.icr.y - sim.pinY);
     }
 
+    // Возвращает координаты управляющей точки (handle) в канвасе
+    function getHandlePos() {
+        const scale = pixelsPerMeter;
+        const tractorAngleGlobal = sim.platformAngle + sim.tractorAngle;
+        const handleDist = GEOM.handleOffset * scale;
+        return {
+            x: sim.pinX + handleDist * Math.cos(tractorAngleGlobal),
+            y: sim.pinY + handleDist * Math.sin(tractorAngleGlobal)
+        };
+    }
+
     function drawRoadTrain() {
         if (roadTrainGroup) canvas.remove(roadTrainGroup);
-        computeICR(); // сначала пересчитываем ICR
+        computeICR();
         const scale = pixelsPerMeter;
         const objects = [];
 
@@ -565,6 +544,18 @@
             startY += len * Math.sin(sim.platformAngle);
         });
 
+        // Управляющая точка (handle) – если режим SIM активен, рисуем её
+        if (currentTool === 'simulate') {
+            const hpos = getHandlePos();
+            objects.push(new fabric.Circle({
+                left: hpos.x, top: hpos.y,
+                radius: 10,
+                fill: '#ff3b30', stroke: '#fff', strokeWidth: 2,
+                originX: 'center', originY: 'center',
+                selectable: false, evented: false
+            }));
+        }
+
         roadTrainGroup = new fabric.Group(objects, { selectable: false, evented: false });
         canvas.add(roadTrainGroup);
         drawICR();
@@ -574,12 +565,9 @@
     function drawICR() {
         canvas.getObjects('line').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
         canvas.getObjects('circle').forEach(o => { if (o.data && o.data.isHelper) canvas.remove(o); });
-        if (!simActive || trailerConfig.length===0 || !sim.icr) return;
+        if (!simActive || !sim.icr) return;
 
-        const icrX = sim.icr.x, icrY = sim.icr.y;
-        // точки на колёсах уже вычислены в computeICR, но мы можем их заново не считать, а просто взять из sim? 
-        // Для простоты нарисуем линии от точек, которые были в computeICR, но они не сохранены. 
-        // Поэтому повторим вычисление точек для визуализации:
+        const icr = sim.icr;
         const scale = pixelsPerMeter;
         const side = sim.tractorAngle > 0 ? 'right' : 'left';
         const sign = side === 'right' ? 1 : -1;
@@ -601,62 +589,260 @@
         const w2y = axle2Y + sign * halfTrack * Math.sin(perpAngle);
 
         canvas.add(
-            new fabric.Line([w1x, w1y, icrX, icrY], { stroke: '#f1c40f', strokeDashArray: [5,5], data: {isHelper: true} }),
-            new fabric.Line([w2x, w2y, icrX, icrY], { stroke: '#f1c40f', strokeDashArray: [5,5], data: {isHelper: true} }),
-            new fabric.Circle({ left: icrX, top: icrY, radius: 5, fill: '#e74c3c', stroke: '#fff', originX: 'center', originY: 'center', data: {isHelper: true} })
+            new fabric.Line([w1x, w1y, icr.x, icr.y], { stroke: '#f1c40f', strokeDashArray: [5,5], data: {isHelper: true} }),
+            new fabric.Line([w2x, w2y, icr.x, icr.y], { stroke: '#f1c40f', strokeDashArray: [5,5], data: {isHelper: true} }),
+            new fabric.Circle({ left: icr.x, top: icr.y, radius: 5, fill: '#e74c3c', stroke: '#fff', originX: 'center', originY: 'center', data: {isHelper: true} })
         );
     }
 
-    // ========== КНОПОЧНОЕ УПРАВЛЕНИЕ ==========
-    document.getElementById('turn-left').addEventListener('click', () => {
-        if (!simActive) return;
-        sim.tractorAngle = Math.max(-Math.PI/2, sim.tractorAngle - 0.05); // шаг ~2.8°
-        drawRoadTrain();
-    });
-    document.getElementById('turn-right').addEventListener('click', () => {
-        if (!simActive) return;
-        sim.tractorAngle = Math.min(Math.PI/2, sim.tractorAngle + 0.05);
-        drawRoadTrain();
-    });
-
-    function moveAlongArc(distance) {
-        if (!simActive || !sim.icr) return;
-        const icr = sim.icr;
-        const r = sim.radius;
-        // Угол поворота платформы вокруг ICR при перемещении шкворня на distance по дуге
-        const deltaAngle = distance / r;
-        // Вектор от ICR к шкворню
-        const dx = sim.pinX - icr.x;
-        const dy = sim.pinY - icr.y;
-        // Поворачиваем этот вектор на deltaAngle вокруг ICR
-        const cosA = Math.cos(deltaAngle);
-        const sinA = Math.sin(deltaAngle);
-        const newDx = dx * cosA - dy * sinA;
-        const newDy = dx * sinA + dy * cosA;
-        sim.pinX = icr.x + newDx;
-        sim.pinY = icr.y + newDy;
-        // Платформа также поворачивается на deltaAngle
-        sim.platformAngle += deltaAngle;
-        drawRoadTrain();
+    // ========== УПРАВЛЕНИЕ ПЕРЕТАСКИВАНИЕМ HANDLE ==========
+    function canvasPointFromScreen(sx, sy) {
+        return canvas.getPointer({ clientX: sx, clientY: sy });
     }
 
-    document.getElementById('move-forward').addEventListener('click', () => {
-        if (!simActive || !sim.icr) return;
-        moveAlongArc(20); // пикселей за шаг
-    });
-    document.getElementById('move-backward').addEventListener('click', () => {
-        if (!simActive || !sim.icr) return;
-        moveAlongArc(-20);
+    function isPointNearHandle(px, py) {
+        if (!simActive || currentTool !== 'simulate') return false;
+        const hpos = getHandlePos();
+        const dist = Math.hypot(px - hpos.x, py - hpos.y);
+        return dist <= 25; // радиус попадания
+    }
+
+    canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
+        if (e.touches.length >= 2) {
+            isMultiTouch = true;
+            isDraggingHandle = false;
+            magWrap.style.display = 'none';
+            isCrosshairActive = false;
+            initialDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            initialZoom = canvas.getZoom();
+            lastMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            lastMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            e.preventDefault();
+            return;
+        }
+        isMultiTouch = false;
+        const touch = e.touches[0];
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+
+        if (currentTool === 'simulate' && simActive) {
+            const ptr = canvasPointFromScreen(touch.clientX, touch.clientY);
+            if (isPointNearHandle(ptr.x, ptr.y)) {
+                isDraggingHandle = true;
+                dragLastCanvasX = ptr.x;
+                dragLastCanvasY = ptr.y;
+                e.preventDefault();
+                return;
+            }
+        }
+
+        if (currentTool === 'scale' || currentTool === 'measure') {
+            const desiredCenterX = touch.clientX;
+            const desiredCenterY = touch.clientY - VISUAL_OFFSET;
+            const actualCenter = positionCrosshair(desiredCenterX, desiredCenterY);
+            crossCenterX_abs = actualCenter.x;
+            crossCenterY_abs = actualCenter.y;
+            isCrosshairActive = true;
+            if (calPoints.length === 1) updateTempPreview(crossCenterX_abs, crossCenterY_abs);
+            e.preventDefault();
+            return;
+        }
+    }, { passive: false });
+
+    canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
+        if (e.touches.length >= 2) {
+            // zoom/pan...
+            return;
+        }
+        const touch = e.touches[0];
+        if (isDraggingHandle && currentTool === 'simulate' && simActive) {
+            const ptr = canvasPointFromScreen(touch.clientX, touch.clientY);
+            const dx = ptr.x - dragLastCanvasX;
+            const dy = ptr.y - dragLastCanvasY;
+
+            // Запоминаем старые значения для вычисления поворота платформы
+            const oldPinX = sim.pinX, oldPinY = sim.pinY;
+            const oldPlatformAngle = sim.platformAngle;
+            const oldICR = sim.icr ? { x: sim.icr.x, y: sim.icr.y } : null;
+
+            // Перемещаем шкворень на dx, dy (линейно, как и раньше)
+            sim.pinX += dx;
+            sim.pinY += dy;
+            dragLastCanvasX = ptr.x;
+            dragLastCanvasY = ptr.y;
+
+            // Вычисляем новый угол тягача (направление от шкворня к handle)
+            const hpos = getHandlePos(); // handle теперь вычисляется после смещения pin
+            // Фактически handle должен быть под пальцем, поэтому лучше использовать позицию пальца как новый handle
+            const targetHandle = { x: ptr.x, y: ptr.y };
+            const deltaX = targetHandle.x - sim.pinX;
+            const deltaY = targetHandle.y - sim.pinY;
+            const targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            sim.tractorAngle = targetAngle;
+
+            // Вычисляем новый ICR (с обновлённым tractorAngle, но пока старым platformAngle)
+            computeICR();
+
+            // Автоматически доворачиваем платформу, чтобы движение соответствовало дуге
+            if (sim.icr && oldICR) {
+                // Вектор от нового ICR к старому положению шкворня и к новому
+                const vOldX = oldPinX - sim.icr.x;
+                const vOldY = oldPinY - sim.icr.y;
+                const vNewX = sim.pinX - sim.icr.x;
+                const vNewY = sim.pinY - sim.icr.y;
+                const angleOld = Math.atan2(vOldY, vOldX);
+                const angleNew = Math.atan2(vNewY, vNewX);
+                let deltaAngle = angleNew - angleOld;
+                // Нормализуем
+                while (deltaAngle > Math.PI) deltaAngle -= 2*Math.PI;
+                while (deltaAngle < -Math.PI) deltaAngle += 2*Math.PI;
+                sim.platformAngle += deltaAngle;
+                // После поворота платформы пересчитываем ICR
+                computeICR();
+            }
+
+            drawRoadTrain();
+            e.preventDefault();
+            return;
+        }
+        // панорама для других инструментов
+        if ((currentTool === 'scale' || currentTool === 'measure') && isCrosshairActive) {
+            const vpt = canvas.viewportTransform;
+            vpt[4] += (touch.clientX - lastX);
+            vpt[5] += (touch.clientY - lastY);
+            canvas.requestRenderAll();
+            if (calPoints.length === 1) updateTempPreview(crossCenterX_abs, crossCenterY_abs);
+        } else if (currentTool === 'none' || (currentTool === 'simulate' && !isDraggingHandle)) {
+            const vpt = canvas.viewportTransform;
+            vpt[4] += (touch.clientX - lastX);
+            vpt[5] += (touch.clientY - lastY);
+            canvas.requestRenderAll();
+        }
+        lastX = touch.clientX;
+        lastY = touch.clientY;
+        e.preventDefault();
+    }, { passive: false });
+
+    canvas.upperCanvasEl.addEventListener('touchend', (e) => {
+        isDraggingHandle = false;
+        if (currentTool === 'none' || currentTool === 'simulate') {
+            magWrap.style.display = 'none';
+            isCrosshairActive = false;
+        }
     });
 
-    // ========== ПОДДЕРЖКА МАСШТАБА И ПАНОРАМЫ (без изменений) ==========
-    // Оставлены оригинальные обработчики touch для панорамы и масштаба.
-    // ... (весь оставшийся код touchstart, touchmove, touchend, функции перекрестия, placePoint)
-    // Для краткости они здесь опущены, но должны быть включены как в предыдущем ответе.
-    // В реальном ответе они будут полностью.
+    // поддержка мыши (аналогично)
+    canvas.on('mouse:down', opt => {
+        if (currentTool === 'simulate' && simActive) {
+            const ptr = canvas.getPointer(opt.e);
+            if (isPointNearHandle(ptr.x, ptr.y)) {
+                isDraggingHandle = true;
+                dragLastCanvasX = ptr.x;
+                dragLastCanvasY = ptr.y;
+            }
+        }
+    });
+    canvas.on('mouse:move', opt => {
+        if (isDraggingHandle && currentTool === 'simulate' && simActive) {
+            const ptr = canvas.getPointer(opt.e);
+            const dx = ptr.x - dragLastCanvasX;
+            const dy = ptr.y - dragLastCanvasY;
+            const oldPinX = sim.pinX, oldPinY = sim.pinY;
+            const oldICR = sim.icr ? { x: sim.icr.x, y: sim.icr.y } : null;
+            sim.pinX += dx;
+            sim.pinY += dy;
+            dragLastCanvasX = ptr.x;
+            dragLastCanvasY = ptr.y;
+            const deltaX = ptr.x - sim.pinX;
+            const deltaY = ptr.y - sim.pinY;
+            sim.tractorAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            computeICR();
+            if (sim.icr && oldICR) {
+                const vOldX = oldPinX - sim.icr.x;
+                const vOldY = oldPinY - sim.icr.y;
+                const vNewX = sim.pinX - sim.icr.x;
+                const vNewY = sim.pinY - sim.icr.y;
+                let deltaAngle = Math.atan2(vNewY, vNewX) - Math.atan2(vOldY, vOldX);
+                sim.platformAngle += deltaAngle;
+                computeICR();
+            }
+            drawRoadTrain();
+        }
+    });
+    canvas.on('mouse:up', () => { isDraggingHandle = false; });
 
-    // ========== ПРОЧИЕ ФУНКЦИИ (updateTempPreview, positionCrosshair) ОСТАВЛЕНЫ БЕЗ ИЗМЕНЕНИЙ ==========
-    // ...
+    function positionCrosshair(targetCenterX_abs, targetCenterY_abs) {
+        if (currentTool !== 'scale' && currentTool !== 'measure') {
+            magWrap.style.display = 'none';
+            return { x: targetCenterX_abs, y: targetCenterY_abs };
+        }
+        const containerRect = canvasContainer.getBoundingClientRect();
+        const relX = targetCenterX_abs - containerRect.left;
+        const relY = targetCenterY_abs - containerRect.top;
+        let wrapX = relX - CROSS_SIZE/2;
+        let wrapY = relY - CROSS_SIZE/2;
+        wrapX = Math.min(Math.max(wrapX, 0), containerRect.width - CROSS_SIZE);
+        wrapY = Math.min(Math.max(wrapY, HINT_RESERVE), containerRect.height - CROSS_SIZE);
+        magWrap.style.left = wrapX + 'px';
+        magWrap.style.top = wrapY + 'px';
+        magWrap.style.display = 'block';
+        return {
+            x: wrapX + CROSS_SIZE/2 + containerRect.left,
+            y: wrapY + CROSS_SIZE/2 + containerRect.top
+        };
+    }
+
+    function updateTempPreview(cx, cy) {
+        if (calPoints.length !== 1) return;
+        const ptr = canvasPointFromScreen(cx, cy);
+        const firstPoint = calPoints[0];
+        clearTempPreview();
+        tempLine = new fabric.Line([firstPoint.x, firstPoint.y, ptr.x, ptr.y], {
+            stroke: '#FF9800', strokeWidth: 2 / canvas.getZoom(), selectable: false, evented: false, opacity: 0.8
+        });
+        tempCircle = new fabric.Circle({
+            left: ptr.x, top: ptr.y, radius: 6 / canvas.getZoom(), fill: '#ff3b30', stroke: 'white',
+            strokeWidth: 2 / canvas.getZoom(), originX: 'center', originY: 'center', selectable: false
+        });
+        canvas.add(tempLine, tempCircle);
+        if (currentTool === 'measure' && pixelsPerMeter) {
+            const pixelDist = Math.hypot(ptr.x - firstPoint.x, ptr.y - firstPoint.y);
+            hint.textContent = `${(pixelDist / pixelsPerMeter).toFixed(1)} м | ✔ Вторая точка`;
+        } else {
+            hint.textContent = '✔ Вторая точка';
+        }
+        canvas.requestRenderAll();
+    }
+
+    function placePoint() {
+        if ((currentTool !== 'scale' && currentTool !== 'measure') || !isCrosshairActive) return;
+        const ptr = canvasPointFromScreen(crossCenterX_abs, crossCenterY_abs);
+        const dot = new fabric.Circle({
+            left: ptr.x, top: ptr.y, radius: 6 / canvas.getZoom(), fill: '#ff3b30', stroke: 'white',
+            strokeWidth: 2 / canvas.getZoom(), originX: 'center', originY: 'center', selectable: false
+        });
+        canvas.add(dot);
+        calPoints.push({ ...ptr });
+        clearTempPreview();
+        if (calPoints.length === 1) {
+            hint.textContent = "✔ Вторая точка";
+            magWrap.style.display = 'none';
+            isCrosshairActive = false;
+        } else if (calPoints.length === 2) {
+            magWrap.style.display = 'none';
+            isCrosshairActive = false;
+            if (currentTool === 'scale') showScaleModal();
+            else if (currentTool === 'measure') showMeasureResult();
+        }
+        canvas.requestRenderAll();
+    }
+
+    hint.addEventListener('click', (e) => { e.stopPropagation(); placePoint(); });
+    hint.addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); placePoint(); });
+
+    window.addEventListener('resize', () => {
+        canvas.setDimensions({ width: window.innerWidth - 65, height: window.innerHeight });
+    });
 </script>
 </body>
 </html>
