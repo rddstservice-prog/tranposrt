@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Heavy Haul Simulator v2.0 – Mobile (Handle)</title>
+    <title>Heavy Haul Simulator v2.1 – Mobile (Handle fix)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
         :root {
@@ -101,7 +101,7 @@
 <div id="dist-modal"></div>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size:8px;opacity:0.3;">v2.0</div>
+        <div style="font-size:8px;opacity:0.3;">v2.1</div>
         <div class="menu-btn" id="map-btn"><span>🖼️</span><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn"><span>📏</span><span>МАСШТАБ</span></div>
         <div class="menu-btn" id="measure-btn"><span>📐</span><span>ИЗМЕРИТЬ</span></div>
@@ -175,7 +175,7 @@
         axleBase: 1.5,
         overhang: 0.75,
         maxAxleAngle: 50 * Math.PI/180,
-        handleOffset: 2.0  // расстояние от шкворня до управляющей точки (в метрах), можно регулировать
+        handleOffset: 4.0  // расстояние от шкворня до точки (4 м = 5.5м от передка - 1.5м от передка)
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
@@ -216,6 +216,10 @@
             if (currentTool === 'simulate') deactivateSimulation();
             else resetToolState();
             currentTool = tool;
+            // если включили симуляцию и автопоезд существует — сразу показываем handle
+            if (tool === 'simulate' && simActive) {
+                drawRoadTrain();
+            }
         }
         updateActiveButtons();
     }
@@ -444,7 +448,6 @@
         const dir1X = Math.cos(axle1Angle), dir1Y = Math.sin(axle1Angle);
         const dir2X = Math.cos(axle2Angle), dir2Y = Math.sin(axle2Angle);
 
-        // Правильные перпендикуляры для выбранной стороны
         const perp1X = -sign * dir1Y;
         const perp1Y = sign * dir1X;
         const perp2X = -sign * dir2Y;
@@ -462,7 +465,6 @@
         sim.radius = Math.hypot(sim.icr.x - sim.pinX, sim.icr.y - sim.pinY);
     }
 
-    // Возвращает координаты управляющей точки (handle) в канвасе
     function getHandlePos() {
         const scale = pixelsPerMeter;
         const tractorAngleGlobal = sim.platformAngle + sim.tractorAngle;
@@ -544,12 +546,13 @@
             startY += len * Math.sin(sim.platformAngle);
         });
 
-        // Управляющая точка (handle) – если режим SIM активен, рисуем её
+        // Управляющая точка – рисуем, если режим SIM активен
         if (currentTool === 'simulate') {
             const hpos = getHandlePos();
+            const handleRadius = (GEOM.tractor.width / 4) * scale;  // 1/4 ширины кабины
             objects.push(new fabric.Circle({
                 left: hpos.x, top: hpos.y,
-                radius: 10,
+                radius: handleRadius,
                 fill: '#ff3b30', stroke: '#fff', strokeWidth: 2,
                 originX: 'center', originY: 'center',
                 selectable: false, evented: false
@@ -604,7 +607,8 @@
         if (!simActive || currentTool !== 'simulate') return false;
         const hpos = getHandlePos();
         const dist = Math.hypot(px - hpos.x, py - hpos.y);
-        return dist <= 25; // радиус попадания
+        const handleRadius = (GEOM.tractor.width / 4) * pixelsPerMeter;
+        return dist <= handleRadius + 15;  // небольшая дополнительная область для удобства
     }
 
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
@@ -651,7 +655,17 @@
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
         if (e.touches.length >= 2) {
-            // zoom/pan...
+            // Двухпальцевый зум и панорама
+            const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            canvas.zoomToPoint({ x: midX, y: midY }, initialZoom * (dist / initialDist));
+            const vpt = canvas.viewportTransform;
+            vpt[4] += (midX - lastMidX);
+            vpt[5] += (midY - lastMidY);
+            canvas.requestRenderAll();
+            lastMidX = midX; lastMidY = midY;
+            e.preventDefault();
             return;
         }
         const touch = e.touches[0];
@@ -660,44 +674,28 @@
             const dx = ptr.x - dragLastCanvasX;
             const dy = ptr.y - dragLastCanvasY;
 
-            // Запоминаем старые значения для вычисления поворота платформы
             const oldPinX = sim.pinX, oldPinY = sim.pinY;
-            const oldPlatformAngle = sim.platformAngle;
             const oldICR = sim.icr ? { x: sim.icr.x, y: sim.icr.y } : null;
 
-            // Перемещаем шкворень на dx, dy (линейно, как и раньше)
             sim.pinX += dx;
             sim.pinY += dy;
             dragLastCanvasX = ptr.x;
             dragLastCanvasY = ptr.y;
 
-            // Вычисляем новый угол тягача (направление от шкворня к handle)
-            const hpos = getHandlePos(); // handle теперь вычисляется после смещения pin
-            // Фактически handle должен быть под пальцем, поэтому лучше использовать позицию пальца как новый handle
             const targetHandle = { x: ptr.x, y: ptr.y };
             const deltaX = targetHandle.x - sim.pinX;
             const deltaY = targetHandle.y - sim.pinY;
-            const targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
-            sim.tractorAngle = targetAngle;
+            sim.tractorAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
 
-            // Вычисляем новый ICR (с обновлённым tractorAngle, но пока старым platformAngle)
             computeICR();
 
-            // Автоматически доворачиваем платформу, чтобы движение соответствовало дуге
             if (sim.icr && oldICR) {
-                // Вектор от нового ICR к старому положению шкворня и к новому
                 const vOldX = oldPinX - sim.icr.x;
                 const vOldY = oldPinY - sim.icr.y;
                 const vNewX = sim.pinX - sim.icr.x;
                 const vNewY = sim.pinY - sim.icr.y;
-                const angleOld = Math.atan2(vOldY, vOldX);
-                const angleNew = Math.atan2(vNewY, vNewX);
-                let deltaAngle = angleNew - angleOld;
-                // Нормализуем
-                while (deltaAngle > Math.PI) deltaAngle -= 2*Math.PI;
-                while (deltaAngle < -Math.PI) deltaAngle += 2*Math.PI;
+                let deltaAngle = Math.atan2(vNewY, vNewX) - Math.atan2(vOldY, vOldX);
                 sim.platformAngle += deltaAngle;
-                // После поворота платформы пересчитываем ICR
                 computeICR();
             }
 
@@ -705,7 +703,7 @@
             e.preventDefault();
             return;
         }
-        // панорама для других инструментов
+        // панорама для остальных инструментов
         if ((currentTool === 'scale' || currentTool === 'measure') && isCrosshairActive) {
             const vpt = canvas.viewportTransform;
             vpt[4] += (touch.clientX - lastX);
@@ -731,7 +729,7 @@
         }
     });
 
-    // поддержка мыши (аналогично)
+    // поддержка мыши (аналогично touch)
     canvas.on('mouse:down', opt => {
         if (currentTool === 'simulate' && simActive) {
             const ptr = canvas.getPointer(opt.e);
