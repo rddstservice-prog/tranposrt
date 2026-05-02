@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Mobile Beta v0.6.0 – Measure Tool</title>
+    <title>Mobile Beta v0.6.1 – Live Measure</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js">
     </script>
     <style>
@@ -72,7 +72,6 @@
             overflow: hidden;
         }
 
-        /* Обёртка перекрестия */
         #magnifier-wrap {
             position: absolute;
             pointer-events: none;
@@ -83,7 +82,6 @@
             will-change: left, top;
         }
 
-        /* Подсказка – теперь кнопка */
         #hint {
             position: absolute;
             bottom: calc(100% + 6px);
@@ -187,13 +185,11 @@
 </head>
 <body>
 
-    <div id="dist-modal">
-        <!-- содержимое будет заполняться динамически -->
-    </div>
+    <div id="dist-modal"></div>
 
     <div id="app">
         <aside id="sidebar">
-            <div style="font-size: 8px; opacity: 0.3;">v0.6.0</div>
+            <div style="font-size: 8px; opacity: 0.3;">v0.6.1</div>
             <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
             <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
             <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -225,11 +221,11 @@
         const scaleBtn = document.getElementById('scale-btn');
         const measureBtn = document.getElementById('measure-btn');
 
-        let currentTool = 'none';   // 'none', 'scale', 'measure'
+        let currentTool = 'none';
         let calPoints = [];
         let tempLine = null;
         let tempCircle = null;
-        let pixelsPerMeter = null;   // сохраняется после калибровки
+        let pixelsPerMeter = null;
 
         let initialDist = 0,
             initialZoom = 1;
@@ -293,7 +289,6 @@
 
         function activateTool(tool) {
             if (currentTool === tool) {
-                // выключаем
                 currentTool = 'none';
                 scaleBtn.classList.remove('active');
                 measureBtn.classList.remove('active');
@@ -302,7 +297,7 @@
                 currentTool = tool;
                 scaleBtn.classList.toggle('active', tool === 'scale');
                 measureBtn.classList.toggle('active', tool === 'measure');
-                resetToolState(); // очищаем предыдущее
+                resetToolState();
             }
         }
 
@@ -311,7 +306,6 @@
         }
 
         function showScaleModal() {
-            // Показываем окно ввода расстояния для масштаба
             distModal.innerHTML = `
                 <div class="modal-content">
                     <div style="font-size: 14px; color: white;">Расстояние между точками:</div>
@@ -325,14 +319,12 @@
                 const realDist = parseFloat(document.getElementById('dist-input').value);
                 if (isNaN(realDist) || realDist <= 0) return;
 
-                // Вычисляем пиксельное расстояние между двумя точками
                 const p1 = calPoints[0];
                 const p2 = calPoints[1];
                 const pixelDist = Math.hypot(p2.x - p1.x, p2.y - p1.y);
-                pixelsPerMeter = pixelDist / realDist; // пикселей на метр
+                pixelsPerMeter = pixelDist / realDist;
 
                 hideModal();
-                // Выходим из инструмента масштаба
                 currentTool = 'none';
                 scaleBtn.classList.remove('active');
                 measureBtn.classList.remove('active');
@@ -407,6 +399,7 @@
 
         function updateTempPreview(centerX_abs, centerY_abs) {
             if (calPoints.length !== 1) return;
+
             const ptr = canvasPointFromScreen(centerX_abs, centerY_abs);
             const firstPoint = calPoints[0];
 
@@ -436,6 +429,16 @@
 
             canvas.add(tempLine);
             canvas.add(tempCircle);
+
+            // Обновление подсказки с расстоянием для инструмента "Измерить"
+            if (currentTool === 'measure' && pixelsPerMeter) {
+                const pixelDist = Math.hypot(ptr.x - firstPoint.x, ptr.y - firstPoint.y);
+                const meters = pixelDist / pixelsPerMeter;
+                hint.textContent = `${meters.toFixed(1)} м | ✔ Вторая точка`;
+            } else {
+                hint.textContent = '✔ Вторая точка';
+            }
+
             canvas.requestRenderAll();
         }
 
@@ -532,7 +535,6 @@
                 lastMidY = midY;
             } else if (e.touches.length === 1) {
                 if (currentTool !== 'none' && isCrosshairActive) {
-                    // Панорамирование карты одним пальцем
                     const vpt = canvas.viewportTransform;
                     vpt[4] += (touch.clientX - lastX);
                     vpt[5] += (touch.clientY - lastY);
@@ -542,7 +544,6 @@
                         updateTempPreview(crossCenterX_abs, crossCenterY_abs);
                     }
                 } else if (currentTool === 'none') {
-                    // Обычное панорамирование
                     const vpt = canvas.viewportTransform;
                     vpt[4] += (touch.clientX - lastX);
                     vpt[5] += (touch.clientY - lastY);
