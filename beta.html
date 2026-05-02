@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Goldhofer THP/SL – Полный билд v0.9.4</title>
+  <title>Goldhofer THP/SL – Полный билд v0.9.5</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <style>
     :root {
@@ -42,7 +42,7 @@
 
 <div id="app">
   <aside id="sidebar">
-    <div style="font-size:8px;opacity:0.3;">v0.9.4</div>
+    <div style="font-size:8px;opacity:0.3;">v0.9.5</div>
     <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
     <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
     <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -260,7 +260,7 @@
   let cargo = null;
 
   function getScale() {
-    return pixelsPerMeter || 30; // увеличенный масштаб по умолчанию
+    return pixelsPerMeter || 30;
   }
 
   function drawTrain() {
@@ -306,8 +306,24 @@
     updateSummary();
   }
 
- function addModule(type, extraParams = {}) {
-    // ... создание mod ...
+  function addModule(type, extraParams = {}) {
+    let mod;
+    const color = '#cc2222';
+    if (type === 'tractor') {
+      mod = new TrainModule('tractor', 7.5, 2.55, color, { hitchRear: -5.5 });
+    } else if (type === 'gooseneck') {
+      mod = new TrainModule('gooseneck', 3.75, 3.0, color, { hitchRear: -3.17, frontOverhang: 0.58 });
+    } else if (type.startsWith('axle')) {
+      const axles = parseInt(type.replace('axle',''));
+      const length = (axles - 1) * 1.5 + 1.5;
+      mod = new TrainModule('axle', length, 3.0, '#555', { axles });
+    } else if (type === 'beam') {
+      const baseLen = extraParams.length || 8.5;
+      const beamWidth = extraParams.width || 3.0;
+      const totalLen = baseLen + 2 * 0.86;
+      mod = new TrainModule('beam', totalLen, beamWidth, '#6a8c5c', { baseLength: baseLen });
+    }
+    if (!mod) return;
 
     if (trainModules.length === 0) {
       const center = canvas.getVpCenter();
@@ -320,9 +336,9 @@
       mod.angle = last.angle;
     }
     trainModules.push(mod);
-    connectModules(); // рисуем поезд
+    connectModules();
 
-    // Если это первый модуль — автоматически показываем его полностью
+    // Авто‑зум при добавлении первого модуля
     if (trainModules.length === 1) {
       const group = canvas.getObjects().find(o => o.trainGroup);
       if (group) {
@@ -330,11 +346,99 @@
         const scale = Math.min(
           canvas.width / (b.width + 50),
           canvas.height / (b.height + 50),
-          2 // ограничиваем максимальный зум
+          2
         );
         canvas.zoomToPoint({ x: b.left + b.width/2, y: b.top + b.height/2 }, scale);
         canvas.requestRenderAll();
       }
+    }
+  }
+
+  function clearTrain() {
+    trainModules = [];
+    cargo = null;
+    drawTrain();
+    updateSummary();
+  }
+
+  function getModuleLabel(mod) {
+    switch (mod.type) {
+      case 'tractor': return 'Тягач';
+      case 'gooseneck': return 'Гуснек';
+      case 'axle': return `${mod.params.axles} оси`;
+      case 'beam': return `Балки(${mod.params.baseLength?.toFixed(1)}x${mod.width.toFixed(1)})`;
+      default: return mod.type;
+    }
+  }
+
+  function updateSummary() {
+    const summaryEl = document.getElementById('train-summary');
+    if (!summaryEl) return;
+    summaryEl.innerHTML = trainModules.length ? 'Состав: ' + trainModules.map(m => getModuleLabel(m)).join(' + ') : 'Состав пуст';
+  }
+
+  function openBuilder() {
+    builderModal.innerHTML = `
+      <div class="modal-content">
+        <h3>Сборка автопоезда</h3>
+        <div id="train-summary" class="train-summary">Состав пуст</div>
+        <button onclick="addModule('tractor')">Тягач 8x4</button>
+        <button onclick="addModule('gooseneck')">Гуснек</button>
+        <button onclick="addModule('axle2')">2 оси</button>
+        <button onclick="addModule('axle3')">3 оси</button>
+        <button onclick="addModule('axle4')">4 оси</button>
+        <button onclick="addModule('axle5')">5 осей</button>
+        <button onclick="addModule('axle6')">6 осей</button>
+        <div style="margin-top:10px;">
+          <label>Длина балок (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
+          <label>Ширина балок (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
+          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})" style="margin-left:5px;">Балки</button>
+        </div>
+        <br>
+        <button onclick="clearTrain()">Очистить</button>
+        <button onclick="document.getElementById('builder-modal').style.display='none'">Закрыть</button>
+      </div>
+    `;
+    builderModal.style.display = 'flex';
+    updateSummary();
+  }
+
+  function openCargo() {
+    if (!trainModules.some(m => m.type === 'beam')) {
+      alert('Добавьте балки в состав');
+      return;
+    }
+    cargoModal.innerHTML = `
+      <div class="modal-content">
+        <h3>Груз на балках</h3>
+        <label>Длина (м): <input type="number" id="cargo-length" value="10" step="0.1"></label>
+        <label>Ширина (м): <input type="number" id="cargo-width" value="3" step="0.1"></label>
+        <br>
+        <label>Смещение от переднего адаптера (м): <input type="range" id="cargo-offset-slider" min="0" max="20" value="2" step="0.1" oninput="document.getElementById('cargo-offset-value').textContent = this.value + ' м'"></label>
+        <span id="cargo-offset-value">2 м</span>
+        <br>
+        <button onclick="applyCargo()">Применить</button>
+        <button onclick="cargoModal.style.display='none'">Отмена</button>
+      </div>
+    `;
+    cargoModal.style.display = 'flex';
+  }
+
+  function applyCargo() {
+    const len = parseFloat(document.getElementById('cargo-length').value);
+    const wid = parseFloat(document.getElementById('cargo-width').value);
+    const off = parseFloat(document.getElementById('cargo-offset-slider').value);
+    if (isNaN(len) || isNaN(wid)) return;
+    cargo = { length: len, width: wid, offsetFromBeamFront: off };
+    cargoModal.style.display = 'none';
+    drawTrain();
+  }
+
+  function updateOpacity() {
+    const trainGroup = canvas.getObjects().find(o => o.trainGroup);
+    if (trainGroup) {
+      trainGroup.set({ opacity: parseFloat(document.getElementById('opacity-slider').value) });
+      canvas.requestRenderAll();
     }
   }
 
