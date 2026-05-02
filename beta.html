@@ -3,96 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Heavy Haul Simulator v2.1 – Mobile (Handle fix)</title>
+    <title>Heavy Haul Simulator v2.2 – Mobile (Geometry fix)</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <style>
-        :root {
-            --bg: #1a1a1a;
-            --menu-w: 65px;
-            --accent: #FF9800;
-            --cross-size: 30px;
-        }
-        body, html {
-            margin: 0; padding: 0; height: 100%;
-            background: var(--bg); overflow: hidden;
-            color: white; font-family: sans-serif;
-            touch-action: none;
-        }
+        :root { --bg: #1a1a1a; --menu-w: 65px; --accent: #FF9800; --cross-size: 30px; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); overflow: hidden; color: white; font-family: sans-serif; touch-action: none; }
         #app { display: flex; width: 100vw; height: 100vh; }
-        #sidebar {
-            width: var(--menu-w); background: #252525;
-            border-right: 1px solid #333;
-            display: flex; flex-direction: column; padding: 10px 4px; gap: 10px;
-            z-index: 100; align-items: center;
-        }
-        .menu-btn {
-            width: 85%; aspect-ratio: 1/1; background: #333;
-            border: 1px solid #444; border-radius: 10px; color: white;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-size: 9px; -webkit-tap-highlight-color: transparent; user-select: none;
-            cursor: pointer;
-        }
-        .menu-btn.active {
-            border-color: var(--accent); background: rgba(255,152,0,0.2); color: var(--accent);
-        }
+        #sidebar { width: var(--menu-w); background: #252525; border-right: 1px solid #333; display: flex; flex-direction: column; padding: 10px 4px; gap: 10px; z-index: 100; align-items: center; }
+        .menu-btn { width: 85%; aspect-ratio: 1/1; background: #333; border: 1px solid #444; border-radius: 10px; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; -webkit-tap-highlight-color: transparent; user-select: none; cursor: pointer; }
+        .menu-btn.active { border-color: var(--accent); background: rgba(255,152,0,0.2); color: var(--accent); }
         #canvas-container { flex-grow: 1; position: relative; background: #000; overflow: hidden; }
-        #magnifier-wrap {
-            position: absolute; pointer-events: none; display: none; z-index: 1000;
-            width: var(--cross-size); height: var(--cross-size); will-change: left, top;
-        }
-        #hint {
-            position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-            background: var(--accent); color: #000; padding: 8px 14px; border-radius: 20px;
-            font-size: 12px; font-weight: 900; white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4); cursor: pointer;
-            pointer-events: auto; -webkit-tap-highlight-color: transparent;
-            user-select: none; border: none; outline: none; transition: background 0.1s;
-        }
+        #magnifier-wrap { position: absolute; pointer-events: none; display: none; z-index: 1000; width: var(--cross-size); height: var(--cross-size); will-change: left, top; }
+        #hint { position: absolute; bottom: calc(100% + 6px); left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 8px 14px; border-radius: 20px; font-size: 12px; font-weight: 900; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,0.4); cursor: pointer; pointer-events: auto; -webkit-tap-highlight-color: transparent; user-select: none; border: none; outline: none; transition: background 0.1s; }
         #hint:active { background: #ffb74d; }
         .crosshair { width: 100%; height: 100%; position: relative; }
-        .crosshair::before, .crosshair::after {
-            content: ''; position: absolute; background: var(--accent); opacity: 0.9;
-        }
+        .crosshair::before, .crosshair::after { content: ''; position: absolute; background: var(--accent); opacity: 0.9; }
         .crosshair::before { left: 0; top: 50%; width: 100%; height: 1px; transform: translateY(-0.5px); }
         .crosshair::after { left: 50%; top: 0; height: 100%; width: 1px; transform: translateX(-0.5px); }
-        #dist-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center;
-        }
-        .modal-content {
-            background: #252525; padding: 20px; border-radius: 12px;
-            border: 1px solid var(--accent); text-align: center; min-width: 200px; max-width: 90vw;
-            color: white;
-        }
-        .modal-content input {
-            width: 80px; text-align: center; padding: 8px; font-size: 16px;
-            background: #111; color: var(--accent); border: 1px solid #444; border-radius: 6px;
-            margin: 15px 0; outline: none;
-        }
-        .modal-content button {
-            background: var(--accent); border: none; padding: 10px 20px; border-radius: 5px;
-            font-weight: bold; cursor: pointer; margin: 5px; color: #000;
-        }
-        .trailer-list {
-            background: #1e1e1e; border-radius: 8px; padding: 10px; margin: 10px 0;
-            max-height: 200px; overflow-y: auto; text-align: left;
-        }
-        .trailer-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 5px; border-bottom: 1px solid #333;
-        }
+        #dist-modal { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 2000; justify-content: center; align-items: center; }
+        .modal-content { background: #252525; padding: 20px; border-radius: 12px; border: 1px solid var(--accent); text-align: center; min-width: 200px; max-width: 90vw; color: white; }
+        .modal-content input { width: 80px; text-align: center; padding: 8px; font-size: 16px; background: #111; color: var(--accent); border: 1px solid #444; border-radius: 6px; margin: 15px 0; outline: none; }
+        .modal-content button { background: var(--accent); border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer; margin: 5px; color: #000; }
+        .trailer-list { background: #1e1e1e; border-radius: 8px; padding: 10px; margin: 10px 0; max-height: 200px; overflow-y: auto; text-align: left; }
+        .trailer-item { display: flex; justify-content: space-between; align-items: center; padding: 5px; border-bottom: 1px solid #333; }
         .trailer-item:last-child { border-bottom: none; }
-        .remove-btn {
-            background: #c0392b; border: none; color: white; border-radius: 50%;
-            width: 24px; height: 24px; font-weight: bold; cursor: pointer;
-        }
-        .axle-select {
-            display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin: 10px 0;
-        }
-        .axle-opt {
-            padding: 8px 12px; background: #333; border: 1px solid #555; border-radius: 4px;
-            cursor: pointer; font-size: 14px;
-        }
+        .remove-btn { background: #c0392b; border: none; color: white; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; cursor: pointer; }
+        .axle-select { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; margin: 10px 0; }
+        .axle-opt { padding: 8px 12px; background: #333; border: 1px solid #555; border-radius: 4px; cursor: pointer; font-size: 14px; }
         .axle-opt.selected { background: var(--accent); color: #000; border-color: var(--accent); }
         .config-display { font-weight: bold; margin: 10px 0; }
     </style>
@@ -101,7 +38,7 @@
 <div id="dist-modal"></div>
 <div id="app">
     <aside id="sidebar">
-        <div style="font-size:8px;opacity:0.3;">v2.1</div>
+        <div style="font-size:8px;opacity:0.3;">v2.2</div>
         <div class="menu-btn" id="map-btn"><span>🖼️</span><span>КАРТА</span></div>
         <div class="menu-btn" id="scale-btn"><span>📏</span><span>МАСШТАБ</span></div>
         <div class="menu-btn" id="measure-btn"><span>📐</span><span>ИЗМЕРИТЬ</span></div>
@@ -169,13 +106,14 @@
     let dragLastCanvasX = 0, dragLastCanvasY = 0;
 
     const GEOM = {
-        tractor: { length: 7.5, width: 2.5, wheelBase: 5.5 },
+        tractor: { length: 7.5, width: 2.5, wheelBase: 5.4 },  // ССУ на 5.4 м от передка
         gooseneck: { length: 3.8, width: 2.5, pinOffset: 0.55 },
         axleTrack: 1.8,
         axleBase: 1.5,
         overhang: 0.75,
-        maxAxleAngle: 50 * Math.PI/180,
-        handleOffset: 4.0  // расстояние от шкворня до точки (4 м = 5.5м от передка - 1.5м от передка)
+        maxAxleAngle: 55 * Math.PI/180,   // 55 градусов
+        maxTractorAngle: 90 * Math.PI/180, // 90 градусов
+        handleOffset: 4.0  // расстояние от шкворня до точки впереди кабины
     };
 
     // ========== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==========
@@ -216,7 +154,6 @@
             if (currentTool === 'simulate') deactivateSimulation();
             else resetToolState();
             currentTool = tool;
-            // если включили симуляцию и автопоезд существует — сразу показываем handle
             if (tool === 'simulate' && simActive) {
                 drawRoadTrain();
             }
@@ -425,25 +362,31 @@
         const side = sim.tractorAngle > 0 ? 'right' : 'left';
         const sign = side === 'right' ? 1 : -1;
 
+        // Платформа позади шкворня (направление -platformAngle)
         const gooseneckLen = GEOM.gooseneck.length;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset;
         const firstAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + GEOM.overhang;
-        const axle1X = sim.pinX + firstAxleDistFromPin * scale * Math.cos(sim.platformAngle);
-        const axle1Y = sim.pinY + firstAxleDistFromPin * scale * Math.sin(sim.platformAngle);
+        const axle1X = sim.pinX - firstAxleDistFromPin * scale * Math.cos(sim.platformAngle);
+        const axle1Y = sim.pinY - firstAxleDistFromPin * scale * Math.sin(sim.platformAngle);
         const halfTrack = (GEOM.axleTrack / 2) * scale;
         const perpAngle = sim.platformAngle + Math.PI / 2;
         const wheel1X = axle1X + sign * halfTrack * Math.cos(perpAngle);
         const wheel1Y = axle1Y + sign * halfTrack * Math.sin(perpAngle);
-        const axle1Angle = sim.platformAngle + Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, sim.tractorAngle));
+
+        // Угол передней оси (ограничен)
+        const frontAxleAngle = Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, sim.tractorAngle));
+        const axle1Angle = sim.platformAngle + frontAxleAngle;
 
         let totalPlatformLen = 0;
         trailerConfig.forEach(ax => { totalPlatformLen += getTrailerLength(ax); });
         const lastAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + totalPlatformLen - GEOM.overhang;
-        const axle2X = sim.pinX + lastAxleDistFromPin * scale * Math.cos(sim.platformAngle);
-        const axle2Y = sim.pinY + lastAxleDistFromPin * scale * Math.sin(sim.platformAngle);
+        const axle2X = sim.pinX - lastAxleDistFromPin * scale * Math.cos(sim.platformAngle);
+        const axle2Y = sim.pinY - lastAxleDistFromPin * scale * Math.sin(sim.platformAngle);
         const wheel2X = axle2X + sign * halfTrack * Math.cos(perpAngle);
         const wheel2Y = axle2Y + sign * halfTrack * Math.sin(perpAngle);
-        const axle2Angle = sim.platformAngle + Math.min(GEOM.maxAxleAngle, Math.max(-GEOM.maxAxleAngle, -sim.tractorAngle));
+
+        const rearAxleAngle = -frontAxleAngle;
+        const axle2Angle = sim.platformAngle + rearAxleAngle;
 
         const dir1X = Math.cos(axle1Angle), dir1Y = Math.sin(axle1Angle);
         const dir2X = Math.cos(axle2Angle), dir2Y = Math.sin(axle2Angle);
@@ -481,12 +424,14 @@
         const scale = pixelsPerMeter;
         const objects = [];
 
+        // Тягач кабиной вперёд (положительное направление угла)
         const tractorLen = GEOM.tractor.length * scale;
         const tractorW = GEOM.tractor.width * scale;
         const pinDist = GEOM.tractor.wheelBase * scale;
         const tractorAngleGlobal = sim.platformAngle + sim.tractorAngle;
-        const tractorCenterX = sim.pinX - (tractorLen/2 - pinDist) * Math.cos(tractorAngleGlobal);
-        const tractorCenterY = sim.pinY - (tractorLen/2 - pinDist) * Math.sin(tractorAngleGlobal);
+        // Центр тягача смещён вперёд от шкворня на (wheelBase - tractorLen/2)
+        const tractorCenterX = sim.pinX + (pinDist - tractorLen/2) * Math.cos(tractorAngleGlobal);
+        const tractorCenterY = sim.pinY + (pinDist - tractorLen/2) * Math.sin(tractorAngleGlobal);
         objects.push(new fabric.Rect({
             left: tractorCenterX, top: tractorCenterY,
             width: tractorLen, height: tractorW,
@@ -496,11 +441,12 @@
             selectable: false, evented: false
         }));
 
+        // Гуснек и платформа позади шкворня (минус направление)
         const gooseneckLen = GEOM.gooseneck.length * scale;
         const gooseneckW = GEOM.gooseneck.width * scale;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset * scale;
-        const gooseneckCenterX = sim.pinX + (gooseneckLen/2 - pinOnGooseneck) * Math.cos(sim.platformAngle);
-        const gooseneckCenterY = sim.pinY + (gooseneckLen/2 - pinOnGooseneck) * Math.sin(sim.platformAngle);
+        const gooseneckCenterX = sim.pinX - (gooseneckLen/2 - pinOnGooseneck) * Math.cos(sim.platformAngle);
+        const gooseneckCenterY = sim.pinY - (gooseneckLen/2 - pinOnGooseneck) * Math.sin(sim.platformAngle);
         objects.push(new fabric.Rect({
             left: gooseneckCenterX, top: gooseneckCenterY,
             width: gooseneckLen, height: gooseneckW,
@@ -510,14 +456,14 @@
             selectable: false, evented: false
         }));
 
-        let startX = sim.pinX + (gooseneckLen - pinOnGooseneck) * Math.cos(sim.platformAngle);
-        let startY = sim.pinY + (gooseneckLen - pinOnGooseneck) * Math.sin(sim.platformAngle);
+        let startX = sim.pinX - (gooseneckLen - pinOnGooseneck) * Math.cos(sim.platformAngle);
+        let startY = sim.pinY - (gooseneckLen - pinOnGooseneck) * Math.sin(sim.platformAngle);
 
         trailerConfig.forEach((axles, idx) => {
             const len = getTrailerLength(axles) * scale;
             const w = GEOM.gooseneck.width * scale;
-            const cx = startX + (len/2) * Math.cos(sim.platformAngle);
-            const cy = startY + (len/2) * Math.sin(sim.platformAngle);
+            const cx = startX - (len/2) * Math.cos(sim.platformAngle);
+            const cy = startY - (len/2) * Math.sin(sim.platformAngle);
             objects.push(new fabric.Rect({
                 left: cx, top: cy,
                 width: len, height: w,
@@ -534,22 +480,22 @@
             for (let a = 0; a < axles; a++) {
                 const offsetFromFront = overhangPx + a * axleSpacing;
                 const offsetFromCenter = offsetFromFront - len/2;
-                const axleX = cx + offsetFromCenter * Math.cos(sim.platformAngle);
-                const axleY = cy + offsetFromCenter * Math.sin(sim.platformAngle);
+                const axleX = cx - offsetFromCenter * Math.cos(sim.platformAngle);
+                const axleY = cy - offsetFromCenter * Math.sin(sim.platformAngle);
                 const dx = halfTrack * Math.cos(sim.platformAngle + Math.PI/2);
                 const dy = halfTrack * Math.sin(sim.platformAngle + Math.PI/2);
                 objects.push(new fabric.Line([axleX - dx, axleY - dy, axleX + dx, axleY + dy], {
                     stroke: '#e74c3c', strokeWidth: 2, selectable: false, evented: false
                 }));
             }
-            startX += len * Math.cos(sim.platformAngle);
-            startY += len * Math.sin(sim.platformAngle);
+            startX -= len * Math.cos(sim.platformAngle);
+            startY -= len * Math.sin(sim.platformAngle);
         });
 
-        // Управляющая точка – рисуем, если режим SIM активен
+        // Управляющая точка
         if (currentTool === 'simulate') {
             const hpos = getHandlePos();
-            const handleRadius = (GEOM.tractor.width / 4) * scale;  // 1/4 ширины кабины
+            const handleRadius = (GEOM.tractor.width / 4) * scale;
             objects.push(new fabric.Circle({
                 left: hpos.x, top: hpos.y,
                 radius: handleRadius,
@@ -577,8 +523,8 @@
         const gooseneckLen = GEOM.gooseneck.length;
         const pinOnGooseneck = GEOM.gooseneck.pinOffset;
         const firstAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + GEOM.overhang;
-        const axle1X = sim.pinX + firstAxleDistFromPin * scale * Math.cos(sim.platformAngle);
-        const axle1Y = sim.pinY + firstAxleDistFromPin * scale * Math.sin(sim.platformAngle);
+        const axle1X = sim.pinX - firstAxleDistFromPin * scale * Math.cos(sim.platformAngle);
+        const axle1Y = sim.pinY - firstAxleDistFromPin * scale * Math.sin(sim.platformAngle);
         const halfTrack = (GEOM.axleTrack/2) * scale;
         const perpAngle = sim.platformAngle + Math.PI/2;
         const w1x = axle1X + sign * halfTrack * Math.cos(perpAngle);
@@ -586,8 +532,8 @@
         let totalPlatformLen = 0;
         trailerConfig.forEach(ax => { totalPlatformLen += getTrailerLength(ax); });
         const lastAxleDistFromPin = (gooseneckLen - pinOnGooseneck) + totalPlatformLen - GEOM.overhang;
-        const axle2X = sim.pinX + lastAxleDistFromPin * scale * Math.cos(sim.platformAngle);
-        const axle2Y = sim.pinY + lastAxleDistFromPin * scale * Math.sin(sim.platformAngle);
+        const axle2X = sim.pinX - lastAxleDistFromPin * scale * Math.cos(sim.platformAngle);
+        const axle2Y = sim.pinY - lastAxleDistFromPin * scale * Math.sin(sim.platformAngle);
         const w2x = axle2X + sign * halfTrack * Math.cos(perpAngle);
         const w2y = axle2Y + sign * halfTrack * Math.sin(perpAngle);
 
@@ -608,7 +554,7 @@
         const hpos = getHandlePos();
         const dist = Math.hypot(px - hpos.x, py - hpos.y);
         const handleRadius = (GEOM.tractor.width / 4) * pixelsPerMeter;
-        return dist <= handleRadius + 15;  // небольшая дополнительная область для удобства
+        return dist <= handleRadius + 15;
     }
 
     canvas.upperCanvasEl.addEventListener('touchstart', (e) => {
@@ -655,7 +601,6 @@
 
     canvas.upperCanvasEl.addEventListener('touchmove', (e) => {
         if (e.touches.length >= 2) {
-            // Двухпальцевый зум и панорама
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
@@ -682,10 +627,14 @@
             dragLastCanvasX = ptr.x;
             dragLastCanvasY = ptr.y;
 
+            // Угол тягача относительно платформы
             const targetHandle = { x: ptr.x, y: ptr.y };
             const deltaX = targetHandle.x - sim.pinX;
             const deltaY = targetHandle.y - sim.pinY;
-            sim.tractorAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            let targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            // Ограничение 90°
+            targetAngle = Math.max(-GEOM.maxTractorAngle, Math.min(GEOM.maxTractorAngle, targetAngle));
+            sim.tractorAngle = targetAngle;
 
             computeICR();
 
@@ -703,7 +652,7 @@
             e.preventDefault();
             return;
         }
-        // панорама для остальных инструментов
+        // панорама
         if ((currentTool === 'scale' || currentTool === 'measure') && isCrosshairActive) {
             const vpt = canvas.viewportTransform;
             vpt[4] += (touch.clientX - lastX);
@@ -729,7 +678,7 @@
         }
     });
 
-    // поддержка мыши (аналогично touch)
+    // поддержка мыши
     canvas.on('mouse:down', opt => {
         if (currentTool === 'simulate' && simActive) {
             const ptr = canvas.getPointer(opt.e);
@@ -753,7 +702,9 @@
             dragLastCanvasY = ptr.y;
             const deltaX = ptr.x - sim.pinX;
             const deltaY = ptr.y - sim.pinY;
-            sim.tractorAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            let targetAngle = Math.atan2(deltaY, deltaX) - sim.platformAngle;
+            targetAngle = Math.max(-GEOM.maxTractorAngle, Math.min(GEOM.maxTractorAngle, targetAngle));
+            sim.tractorAngle = targetAngle;
             computeICR();
             if (sim.icr && oldICR) {
                 const vOldX = oldPinX - sim.icr.x;
