@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Goldhofer THP/SL – Полный билд v0.9.3</title>
+  <title>Goldhofer THP/SL – Полный билд v0.9.4</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <style>
     :root {
@@ -31,7 +31,7 @@
     .modal-content button { background:var(--accent); border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin:5px; }
     .train-summary { background:#333; padding:8px; border-radius:8px; margin:10px 0; font-size:14px; text-align:left; white-space:normal; }
     .slider-container { display:flex; align-items:center; gap:5px; margin:5px 0; }
-    #opacity-slider { width:100%; } /* теперь помещается */
+    #opacity-slider { width:100%; }
   </style>
 </head>
 <body>
@@ -42,7 +42,7 @@
 
 <div id="app">
   <aside id="sidebar">
-    <div style="font-size:8px;opacity:0.3;">v0.9.3</div>
+    <div style="font-size:8px;opacity:0.3;">v0.9.4</div>
     <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
     <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
     <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -260,7 +260,7 @@
   let cargo = null;
 
   function getScale() {
-    return pixelsPerMeter || 20; // увеличено для заметности на стандартном экране
+    return pixelsPerMeter || 30; // увеличенный масштаб по умолчанию
   }
 
   function drawTrain() {
@@ -306,17 +306,6 @@
     updateSummary();
   }
 
-  // Вспомогательная функция вычисления центра видимой области канваса
-  function getViewportCenter() {
-    const vpt = canvas.viewportTransform;
-    const containerRect = canvasContainer.getBoundingClientRect();
-    const centerScreenX = containerRect.width / 2;
-    const centerScreenY = containerRect.height / 2;
-    // Преобразование экранных координат в канвас-координаты (обратное преобразование)
-    const inv = fabric.util.invertTransform(vpt.slice());
-    return fabric.util.transformPoint({ x: centerScreenX, y: centerScreenY }, inv);
-  }
-
   function addModule(type, extraParams = {}) {
     let mod;
     const color = '#cc2222';
@@ -336,9 +325,9 @@
     }
     if (!mod) return;
 
-    // Первый модуль — точно в центр видимой области
+    // Первый модуль — точно в центр видимой области (используем надежный метод)
     if (trainModules.length === 0) {
-      const center = getViewportCenter();
+      const center = canvas.getVpCenter();
       mod.x = center.x;
       mod.y = center.y;
     } else {
