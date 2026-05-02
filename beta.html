@@ -166,7 +166,7 @@
         simActive = false;
         stopAllTimers();
         simPanel.style.display = 'none';
-        hint.style.display = 'block'; // возвращаем подсказку
+        hint.style.display = 'block';
         canvas.renderAll();
     }
 
@@ -186,7 +186,7 @@
             currentTool = tool;
             if (tool === 'simulate' && simActive) {
                 simPanel.style.display = 'flex';
-                hint.style.display = 'none'; // скрываем перекрестие
+                hint.style.display = 'none';
                 drawRoadTrain();
             } else if (tool === 'scale' || tool === 'measure') {
                 hint.style.display = 'block';
