@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Goldhofer THP/SL – Полный билд v0.9.0</title>
+  <title>Goldhofer THP/SL – Полный билд v0.9.2</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
   <style>
     :root {
@@ -26,9 +26,10 @@
     .crosshair::before { left:0; top:50%; width:100%; height:1px; transform:translateY(-0.5px); }
     .crosshair::after { left:50%; top:0; height:100%; width:1px; transform:translateX(-0.5px); }
     #dist-modal, #builder-modal, #cargo-modal { display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.7); z-index:2000; justify-content:center; align-items:center; }
-    .modal-content { background:#252525; padding:20px; border-radius:12px; border:1px solid var(--accent); text-align:center; min-width:200px; max-height:80vh; overflow-y:auto; }
+    .modal-content { background:#252525; padding:20px; border-radius:12px; border:1px solid var(--accent); text-align:center; min-width:260px; max-height:80vh; overflow-y:auto; }
     .modal-content input, .modal-content select { width:80px; text-align:center; padding:8px; font-size:16px; background:#111; color:var(--accent); border:1px solid #444; border-radius:6px; margin:10px 0; outline:none; }
     .modal-content button { background:var(--accent); border:none; padding:10px 20px; border-radius:5px; font-weight:bold; cursor:pointer; margin:5px; }
+    .train-summary { background:#333; padding:8px; border-radius:8px; margin:10px 0; font-size:14px; text-align:left; white-space:normal; }
     .slider-container { display:flex; align-items:center; gap:10px; margin:10px 0; }
     #opacity-slider { width:150px; }
   </style>
@@ -41,7 +42,7 @@
 
 <div id="app">
   <aside id="sidebar">
-    <div style="font-size:8px;opacity:0.3;">v0.9.0</div>
+    <div style="font-size:8px;opacity:0.3;">v0.9.2</div>
     <div class="menu-btn" onclick="document.getElementById('map-upload').click()"><i>🖼️</i><span>КАРТА</span></div>
     <div class="menu-btn" id="scale-btn" onclick="activateTool('scale')"><i>📏</i><span>МАСШТАБ</span></div>
     <div class="menu-btn" id="measure-btn" onclick="activateTool('measure')"><i>📐</i><span>ИЗМЕРИТЬ</span></div>
@@ -83,7 +84,7 @@
 
   // ====================== ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ======================
   let currentTool = 'none';
-  let calPoints = [], tempLine = null, tempCircle = null, pixelsPerMeter = null; // null - масштаб не задан, временно 10
+  let calPoints = [], tempLine = null, tempCircle = null, pixelsPerMeter = null;
   let initialDist = 0, initialZoom = 1, lastX = 0, lastY = 0, lastMidX = 0, lastMidY = 0;
   let isMultiTouch = false, crossCenterX_abs = 0, crossCenterY_abs = 0, isCrosshairActive = false;
   const CROSS_SIZE = 30, VISUAL_OFFSET = 80, HINT_RESERVE = 25;
@@ -98,7 +99,7 @@
       this.angle = 0;
       this.x = 0; // передняя стыковочная точка
       this.y = 0;
-      this.frontOverhang = params.frontOverhang || 0; // выступ вперёд от стыковочной точки
+      this.frontOverhang = params.frontOverhang || 0;
       this.hitchRear = params.hitchRear || -length;
       this.params = params;
     }
@@ -168,7 +169,7 @@
       const { x, y, angle, color } = this;
       const cos = Math.cos(angle), sin = Math.sin(angle);
       const totalLen = 3.75 * scale;
-      const width = 3.0 * scale;
+      const width = this.width * scale;
       const bevel = 0.66 * scale;
       const frontOverhang = 0.58 * scale;
 
@@ -259,7 +260,7 @@
   let cargo = null;
 
   function getScale() {
-    return pixelsPerMeter || 10; // если масштаб не задан, 10 пикселей на метр
+    return pixelsPerMeter || 20; // увеличено до 20 для видимости без калибровки
   }
 
   function drawTrain() {
@@ -302,6 +303,7 @@
       cur.angle = prev.angle;
     }
     drawTrain();
+    updateSummary();
   }
 
   function addModule(type, extraParams = {}) {
@@ -317,19 +319,22 @@
       mod = new TrainModule('axle', length, 3.0, '#555', { axles });
     } else if (type === 'beam') {
       const baseLen = extraParams.length || 8.5;
+      const beamWidth = extraParams.width || 3.0;
       const totalLen = baseLen + 2 * 0.86;
-      mod = new TrainModule('beam', totalLen, 3.0, '#6a8c5c', { baseLength: baseLen });
+      mod = new TrainModule('beam', totalLen, beamWidth, '#6a8c5c', { baseLength: baseLen });
     }
     if (!mod) return;
 
-    if (trainModules.length > 0) {
+    // Позиционирование первого модуля точно в центре видимой области
+    if (trainModules.length === 0) {
+      const center = canvas.getVpCenter();
+      mod.x = center.x;
+      mod.y = center.y;
+    } else {
       const last = trainModules[trainModules.length-1];
       mod.x = last.rearHitchX;
       mod.y = last.rearHitchY;
       mod.angle = last.angle;
-    } else {
-      mod.x = canvas.width / 2;
-      mod.y = canvas.height / 2;
     }
     trainModules.push(mod);
     connectModules();
@@ -339,12 +344,30 @@
     trainModules = [];
     cargo = null;
     drawTrain();
+    updateSummary();
+  }
+
+  function getModuleLabel(mod) {
+    switch (mod.type) {
+      case 'tractor': return '🚛 Тягач';
+      case 'gooseneck': return '🔻 Гусек';
+      case 'axle': return `⚙️ ${mod.params.axles} оси`;
+      case 'beam': return `🛏 Постель(${mod.params.baseLength?.toFixed(1)}x${mod.width.toFixed(1)})`;
+      default: return mod.type;
+    }
+  }
+
+  function updateSummary() {
+    const summaryEl = document.getElementById('train-summary');
+    if (!summaryEl) return;
+    summaryEl.innerHTML = trainModules.length ? 'Состав: ' + trainModules.map(m => getModuleLabel(m)).join(' + ') : 'Состав пуст';
   }
 
   function openBuilder() {
     builderModal.innerHTML = `
       <div class="modal-content">
         <h3>Сборка автопоезда</h3>
+        <div id="train-summary" class="train-summary">Состав пуст</div>
         <button onclick="addModule('tractor')">🚛 Тягач 8x4</button>
         <button onclick="addModule('gooseneck')">🔻 Гуснек</button>
         <button onclick="addModule('axle2')">⚙️ 2 оси</button>
@@ -354,7 +377,8 @@
         <button onclick="addModule('axle6')">⚙️ 6 осей</button>
         <div style="margin-top:10px;">
           <label>Длина постели (м): <input type="number" id="beam-length" value="8.5" step="0.1" style="width:60px;"></label>
-          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value)})">🛏 Постель</button>
+          <label>Ширина постели (м): <input type="number" id="beam-width" value="3.0" step="0.1" style="width:60px;"></label>
+          <button onclick="addModule('beam', {length: parseFloat(document.getElementById('beam-length').value), width: parseFloat(document.getElementById('beam-width').value)})">🛏 Постель</button>
         </div>
         <br>
         <button onclick="clearTrain()">🗑 Очистить</button>
@@ -362,6 +386,7 @@
       </div>
     `;
     builderModal.style.display = 'flex';
+    updateSummary(); // обновляем сразу
   }
 
   function openCargo() {
@@ -421,14 +446,13 @@
         });
         img.scale(Math.min(canvas.width / img.width, canvas.height / img.height) * 0.9);
         canvas.add(img).sendToBack().renderAll();
-        // перерисовываем поезд поверх карты, если есть
         if (trainModules.length > 0) drawTrain();
       });
     };
     reader.readAsDataURL(file);
   }
 
-  // ====================== ИНСТРУМЕНТЫ МАСШТАБ / ИЗМЕРЕНИЕ ======================
+  // ====================== ИНСТРУМЕНТЫ МАСШТАБ / ИЗМЕРЕНИЕ (без изменений) ======================
   function clearTempPreview() {
     if (tempLine) { canvas.remove(tempLine); tempLine = null; }
     if (tempCircle) { canvas.remove(tempCircle); tempCircle = null; }
@@ -481,7 +505,7 @@
       scaleBtn.classList.remove('active');
       measureBtn.classList.remove('active');
       resetToolState();
-      drawTrain(); // перерисовываем поезд с новым масштабом
+      drawTrain();
     });
   }
 
